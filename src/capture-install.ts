@@ -150,15 +150,11 @@ export type InstallResult = {
   updatedGitignore: boolean;
 };
 
-export async function installCapture(
-  projectRoot: string,
-  nodePath: string,
-  cliPath: string,
-): Promise<InstallResult> {
-  const hooksPath = join(projectRoot, ".codex", "hooks.json");
-  const existing = await readJson(hooksPath);
-  await writeJsonAtomic(hooksPath, mergeCaptureHooks(existing, nodePath, cliPath));
+export type ConfigureResult = Omit<InstallResult, "hooksPath">;
 
+export async function configureCaptureProject(
+  projectRoot: string,
+): Promise<ConfigureResult> {
   const namespace =
     (projectRoot.split(/[\\/]/).filter(Boolean).at(-1) ?? "project")
       .replace(/[^A-Za-z0-9-]+/g, "-")
@@ -184,10 +180,25 @@ export async function installCapture(
 
   return {
     projectRoot,
-    hooksPath,
     createdCaptureConfig,
     createdEnvironment,
     updatedGitignore,
+  };
+}
+
+export async function installCapture(
+  projectRoot: string,
+  nodePath: string,
+  cliPath: string,
+): Promise<InstallResult> {
+  const hooksPath = join(projectRoot, ".codex", "hooks.json");
+  const existing = await readJson(hooksPath);
+  await writeJsonAtomic(hooksPath, mergeCaptureHooks(existing, nodePath, cliPath));
+  const configured = await configureCaptureProject(projectRoot);
+
+  return {
+    ...configured,
+    hooksPath,
   };
 }
 

@@ -6,7 +6,7 @@ import { execFileSync } from "node:child_process";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { captureConfigSchema, enqueue, flush, makeEntry, pendingCount, projectNamespace, scope, type CaptureTransport, type HookInput } from "./capture.js";
-import { captureHooksInstalled, installCapture, uninstallCapture } from "./capture-install.js";
+import { captureHooksInstalled, configureCaptureProject, installCapture, uninstallCapture } from "./capture-install.js";
 import { enqueueImport, planChatGptImport, planClaudeImport, type ImportProvider } from "./claude-import.js";
 import {
   claudeDesktopBridgeStatus,
@@ -19,6 +19,7 @@ import { defaultOwnerId } from "./identity.js";
 const mode = process.argv[2] ?? "hook";
 const source = process.argv[3] ?? "codex";
 const claudeDesktop = process.argv.includes("--claude-desktop");
+const pluginMode = process.argv.includes("--plugin");
 function option(name: string): string | undefined {
   const index = process.argv.indexOf(name);
   const value = index >= 0 ? process.argv[index + 1] : undefined;
@@ -61,6 +62,13 @@ function unpack(value: unknown): any {
 }
 
 async function main() {
+  if (mode === "configure") {
+    output({
+      ...(await configureCaptureProject(projectRoot)),
+      nextStep: "Fill the Redis values in .env, then start a new local chat with the plugin enabled.",
+    });
+    return;
+  }
   if (mode === "install") {
     if (claudeDesktop) {
       const cliPath = fileURLToPath(import.meta.url);
@@ -108,6 +116,7 @@ async function main() {
       "       ram-capture <command> --claude-desktop [--claude-config PATH] [--project PATH]",
       "",
       "Commands:",
+      "  configure  Create default-enabled capture config without project hooks",
       "  install    Install project-scoped Codex hooks and local config",
       "  doctor     Check hook, config, credentials, and retry queue state",
       "  status     Print capture identity and pending queue count",
@@ -119,6 +128,7 @@ async function main() {
       "",
       "Claude Desktop mode installs the local bridge for best-effort, model-directed",
       "saving. It cannot passively observe every Desktop Chat prompt and response.",
+      "Use doctor --plugin when lifecycle hooks come from the installed desktop plugin.",
       "",
       "Import options:",
       "  --input PATH        Export ZIP, conversations JSON, or copied memory text",
@@ -169,7 +179,7 @@ async function main() {
     } catch {
       issues.push("Missing or invalid .memory-capture.json");
     }
-    const hooksInstalled = await captureHooksInstalled(projectRoot);
+    const hooksInstalled = pluginMode || await captureHooksInstalled(projectRoot);
     if (!hooksInstalled) issues.push("Codex capture hooks are not installed");
     for (const name of ["AGENT_MEMORY_BASE_URL", "AGENT_MEMORY_STORE_ID", "AGENT_MEMORY_API_KEY"]) {
       if (!process.env[name]?.trim()) issues.push(`Missing ${name} in the environment or .env`);
@@ -179,6 +189,7 @@ async function main() {
       projectRoot,
       enabled,
       hooksInstalled,
+      hookSource: pluginMode ? "plugin" : "project",
       pending: await pendingCount(queue),
       issues,
     });
@@ -259,7 +270,15 @@ async function main() {
   }
 
   if (!importSummary && mode !== "flush") {
-    config = captureConfigSchema.parse(JSON.parse(await readFile(join(projectRoot, ".memory-capture.json"), "utf8")));
+    try {
+      config = captureConfigSchema.parse(JSON.parse(await readFile(join(projectRoot, ".memory-capture.json"), "utf8")));
+    } catch (error) {
+      if (mode === "hook" && (error as NodeJS.ErrnoException).code === "ENOENT") {
+        output({});
+        return;
+      }
+      throw error;
+    }
     if (mode === "status") {
       const resolved = scope(config, projectRoot, source, {hook_event_name: "SessionStart", session_id: "status"});
       output({ enabled: config.enabled, ownerId: resolved.owner, namespace: resolved.namespace, pending: await pendingCount(queue) });
@@ -276,7 +295,7 @@ async function main() {
     const entry = makeEntry(config, projectRoot, source, input, [process.env.AGENT_MEMORY_API_KEY ?? ""]);
     if (entry) await enqueue(queue, entry);
   } else if (!importSummary && mode !== "flush") {
-    throw new Error("Expected install, doctor, status, flush, import-claude, import-chatgpt, uninstall, help, or hook");
+    throw new Error("Expected configure, install, doctor, status, flush, import-claude, import-chatgpt, uninstall, help, or hook");
   }
 
   // Enqueue before touching the network so missing credentials/outages preserve the prompt.

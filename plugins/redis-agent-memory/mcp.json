@@ -1,0 +1,20 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+  "mcpServers": {
+    "redis-agent-memory": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["${PLUGIN_ROOT}/server/index.js"],
+      "cwd": "${PLUGIN_ROOT}",
+      "env_vars": [
+        "AGENT_MEMORY_BASE_URL",
+        "AGENT_MEMORY_STORE_ID",
+        "AGENT_MEMORY_API_KEY",
+        "AGENT_MEMORY_OWNER_ID",
+        "AGENT_MEMORY_NAMESPACE_ID",
+        "AGENT_MEMORY_NAMESPACE",
+        "AGENT_MEMORY_AGENT_ID"
+      ]
+    }
+  }
+}

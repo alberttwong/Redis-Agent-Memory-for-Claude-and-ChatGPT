@@ -1,0 +1,33 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "redis-agent-memory",
+  "version": "0.1.0",
+  "description": "Automatically save and recall project context with Redis Agent Memory in local ChatGPT and Codex desktop chats.",
+  "author": {
+    "name": "Albert Wong",
+    "url": "https://github.com/alberttwong"
+  },
+  "homepage": "https://github.com/alberttwong/redis-agent-memory-mcp",
+  "repository": "https://github.com/alberttwong/redis-agent-memory-mcp",
+  "keywords": ["memory", "redis", "codex", "chatgpt", "handoff"],
+  "extensions": {
+    "com.openai": {
+      "requires_local_executor": true,
+      "hooks": "./hooks/hooks.json",
+      "onboardingSkill": "./skills/setup-redis-memory/SKILL.md",
+      "interface": {
+        "displayName": "Redis Agent Memory",
+        "shortDescription": "Durable project memory with automatic local capture",
+        "longDescription": "Save supported local ChatGPT and Codex turns through trusted lifecycle hooks, retry writes after outages, recall project context, and use explicit Redis Agent Memory tools for checkpoints and handoffs.",
+        "developerName": "Albert Wong",
+        "category": "Productivity",
+        "capabilities": [
+          "Automatically save supported local turns",
+          "Recall durable project context",
+          "Save and resume agent handoffs"
+        ],
+        "websiteURL": "https://github.com/alberttwong/redis-agent-memory-mcp"
+      }
+    }
+  }
+}
