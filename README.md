@@ -53,6 +53,14 @@ npm run capture:import:chatgpt -- --input /path/to/chatgpt-export.zip
 
 They preserve roles and timestamps, redact known credential patterns, use deterministic record IDs, and support conversation/date filters. See [Import existing memories](docs/importing-memories.md) before writing a large export.
 
+To automatically import downloaded exports, start a folder watcher and place files in its `claude/` or `chatgpt/` subfolder:
+
+```sh
+npm run capture:watch-imports -- --directory /path/to/memory-exports --write
+```
+
+Omit `--write` to preview. The watcher remembers queued files across restarts and retries pending delivery while running. You still request and download exports from each provider yourself.
+
 ## Redis Agent Memory capabilities
 
 Redis Agent Memory provides:

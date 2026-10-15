@@ -296,7 +296,7 @@ function records(items: ParsedItem[], options: ClaudeImportOptions, provider: Im
     const chunks = content.match(/[\s\S]{1,6000}/g) ?? [];
     const sessionId = `${provider}-${digest(item.conversationId)}`;
     return chunks.map((chunk, part) => ({
-      id: `${provider}-${digest(JSON.stringify([item.sourceFile, item.conversationId, item.messageId, part, chunk]))}`,
+      id: `${provider}-${digest(JSON.stringify([options.ownerId, options.namespace, item.sourceFile, item.conversationId, item.messageId, part, chunk]))}`,
       text: JSON.stringify(sanitizeMemory({
         role: item.role,
         source: `${provider}-import`,
