@@ -26,7 +26,7 @@ In a local Codex chat inside ChatGPT Desktop, submitted prompts and available fi
 | Claude or ChatGPT import | Preview by default; `--write` queues selected historical records | Yes |
 | Cloud-orchestrated ChatGPT Work chat | Local project hooks do not run | No |
 
-Automatic saving is enabled by default when `ram-capture install` creates a project configuration. It can be disabled explicitly in `.memory-capture.json`. Claude Desktop remains model-directed because ordinary Desktop Chat does not expose the lifecycle hooks needed for passive capture.
+Automatic saving is enabled by default. It can be disabled explicitly in `.memory-capture.json`. Claude Desktop remains model-directed because ordinary Desktop Chat does not expose the lifecycle hooks needed for passive capture.
 
 ## Import existing history
 
