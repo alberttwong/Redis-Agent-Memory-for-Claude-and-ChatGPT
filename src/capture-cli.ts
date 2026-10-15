@@ -314,7 +314,7 @@ async function main() {
   if (!key || !base || !store) throw new Error("Capture credentials are not configured");
   const endpoint = new URL(`/v1/stores/${encodeURIComponent(store)}/mcp`, base);
   if (endpoint.protocol !== "https:") throw new Error("Capture requires an HTTPS memory endpoint");
-  const client = new Client({name: "redis-prompt-capture", version: "0.1.1"});
+  const client = new Client({name: "redis-prompt-capture", version: "0.1.2"});
   const deadline = AbortSignal.timeout(20000);
   const transport = new StreamableHTTPClientTransport(endpoint, {
     requestInit: {headers: {Authorization: `Bearer ${key}`}},
