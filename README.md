@@ -55,9 +55,28 @@ See the [Redis Agent Memory documentation](https://redis.io/docs/latest/develop/
 
 ## Use cases
 
-The examples below use the optional bridge's tools. For a direct native connection, use the [native handoff workflow](docs/native-tools.md#handoff-using-native-tools).
-
 ### Switch agents when credits run out
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant Claude as Claude Desktop
+    participant Memory as Shared project memory
+    participant ChatGPT as ChatGPT Desktop
+
+    User->>Claude: Help me decide how checkout retries should work
+    Claude-->>User: Let's allow up to seven attempts
+    User->>Claude: Remember that decision and save where we left off
+    Claude->>Memory: Save the decision and next step
+    Memory-->>Claude: Progress saved
+    Claude-->>User: Saved. Next step is to implement the seven-attempt limit
+    Note over User,ChatGPT: Later, the user switches apps or starts a new chat
+    User->>ChatGPT: Continue the checkout retry task from our saved progress
+    ChatGPT->>Memory: Recall the task's saved progress
+    Memory-->>ChatGPT: Seven attempts agreed, implementation is next
+    ChatGPT-->>User: We agreed on seven attempts. I'll continue with the implementation
+    Note over User,ChatGPT: The user continues without repeating the earlier discussion
+```
 
 Start a task in Claude Code and continue in Codex when you reach your Claude usage limit. Both clients connect to this bridge using the same Redis store, owner, namespace, and task session ID. Save checkpoints during the work so the next agent can retrieve the latest saved goal, decisions, completed work, blockers, and next steps with `resume_context`.
 
@@ -86,27 +105,6 @@ Have Claude Code investigate a failing test, record attempted fixes and findings
 Claude records the decision that checkout retries should allow seven attempts, then saves a checkpoint with the next step: implement that limit. ChatGPT retrieves the original event and checkpoint from the same Redis store and resumes with the saved decision and next step.
 
 Use the same project memory and task session in both apps. Save progress before switching so ChatGPT can pick up the latest decision without asking you to repeat the conversation.
-
-```mermaid
-sequenceDiagram
-    actor User
-    participant Claude as Claude Desktop
-    participant Memory as Shared project memory
-    participant ChatGPT as ChatGPT Desktop
-
-    User->>Claude: Help me decide how checkout retries should work
-    Claude-->>User: Let's allow up to seven attempts
-    User->>Claude: Remember that decision and save where we left off
-    Claude->>Memory: Save the decision and next step
-    Memory-->>Claude: Progress saved
-    Claude-->>User: Saved. Next step is to implement the seven-attempt limit
-    Note over User,ChatGPT: Later, the user switches apps or starts a new chat
-    User->>ChatGPT: Continue the checkout retry task from our saved progress
-    ChatGPT->>Memory: Recall the task's saved progress
-    Memory-->>ChatGPT: Seven attempts agreed, implementation is next
-    ChatGPT-->>User: We agreed on seven attempts. I'll continue with the implementation
-    Note over User,ChatGPT: The user continues without repeating the earlier discussion
-```
 
 The [end-to-end handoff test](integration/claude-chatgpt.test.mjs) verifies the memory persistence and retrieval behind this journey using the packaged Claude and ChatGPT servers. It drives MCP calls directly without opening either Desktop app or asking a model to implement the retry limit. See [how to run the handoff test](#test-the-claude-to-chatgpt-handoff) for setup and coverage limits.
 
