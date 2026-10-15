@@ -1,15 +1,22 @@
 #!/usr/bin/env node
 import { readFile } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { captureConfigSchema, enqueue, flush, makeEntry, pendingCount, scope, type CaptureTransport, type HookInput } from "./capture.js";
 import { captureHooksInstalled, installCapture, uninstallCapture } from "./capture-install.js";
+import {
+  claudeDesktopBridgeStatus,
+  defaultClaudeDesktopConfigPath,
+  installClaudeDesktopBridge,
+  uninstallClaudeDesktopBridge,
+} from "./claude-desktop-install.js";
 
 const mode = process.argv[2] ?? "hook";
 const source = process.argv[3] ?? "codex";
+const claudeDesktop = process.argv.includes("--claude-desktop");
 function option(name: string): string | undefined {
   const index = process.argv.indexOf(name);
   return index >= 0 ? process.argv[index + 1] : undefined;
@@ -19,6 +26,10 @@ try { inferredRoot = execFileSync("git", ["rev-parse", "--show-toplevel"], {enco
 const projectRoot = resolve(option("--project") ?? process.env.MEMORY_CAPTURE_PROJECT_ROOT ?? inferredRoot);
 const queue = join(projectRoot, ".memory-capture", "queue");
 let config: ReturnType<typeof captureConfigSchema.parse>;
+
+function claudeConfigPath(): string {
+  return resolve(option("--claude-config") ?? defaultClaudeDesktopConfigPath());
+}
 
 function output(data: unknown) { process.stdout.write(JSON.stringify(data) + "\n"); }
 function unpack(value: unknown): any {
@@ -35,6 +46,21 @@ function unpack(value: unknown): any {
 
 async function main() {
   if (mode === "install") {
+    if (claudeDesktop) {
+      const cliPath = fileURLToPath(import.meta.url);
+      const installed = await installClaudeDesktopBridge(
+        projectRoot,
+        claudeConfigPath(),
+        process.execPath,
+        join(dirname(cliPath), "index.js"),
+      );
+      output({
+        ...installed,
+        nextStep: "Fill the Redis values in .env, fully quit Claude Desktop, and reopen it.",
+        limitation: "Claude Desktop capture is model-directed and best-effort, not passive lifecycle capture.",
+      });
+      return;
+    }
     const installed = await installCapture(
       projectRoot,
       process.execPath,
@@ -47,6 +73,13 @@ async function main() {
     return;
   }
   if (mode === "uninstall") {
+    if (claudeDesktop) {
+      output({
+        ...(await uninstallClaudeDesktopBridge(claudeConfigPath())),
+        preserved: [".env", "Redis memories"],
+      });
+      return;
+    }
     output({
       ...(await uninstallCapture(projectRoot)),
       preserved: [".env", ".memory-capture.json", ".memory-capture/"],
@@ -56,6 +89,7 @@ async function main() {
   if (mode === "help" || mode === "--help" || mode === "-h") {
     process.stdout.write([
       "Usage: ram-capture <command> [--project PATH]",
+      "       ram-capture <command> --claude-desktop [--claude-config PATH] [--project PATH]",
       "",
       "Commands:",
       "  install    Install project-scoped Codex hooks and local config",
@@ -64,6 +98,9 @@ async function main() {
       "  flush      Retry queued writes",
       "  uninstall  Remove only hooks installed by ram-capture",
       "  hook       Handle a Codex hook event on stdin",
+      "",
+      "Claude Desktop mode installs the local bridge for best-effort, model-directed",
+      "saving. It cannot passively observe every Desktop Chat prompt and response.",
       "",
     ].join("\n"));
     return;
@@ -77,6 +114,22 @@ async function main() {
 
   if (mode === "doctor") {
     const issues: string[] = [];
+    if (claudeDesktop) {
+      const desktop = await claudeDesktopBridgeStatus(claudeConfigPath());
+      if (!desktop.installed) issues.push("Claude Desktop bridge is not installed");
+      else if (!desktop.managed) issues.push("Claude Desktop bridge is not managed by ram-capture");
+      for (const name of ["AGENT_MEMORY_BASE_URL", "AGENT_MEMORY_STORE_ID", "AGENT_MEMORY_API_KEY"]) {
+        if (!process.env[name]?.trim()) issues.push(`Missing ${name} in the environment or .env`);
+      }
+      output({
+        ok: issues.length === 0,
+        projectRoot,
+        ...desktop,
+        issues,
+      });
+      if (issues.length) process.exitCode = 1;
+      return;
+    }
     let enabled: boolean | undefined;
     try {
       const parsed = captureConfigSchema.parse(
@@ -102,6 +155,19 @@ async function main() {
     });
     if (issues.length) process.exitCode = 1;
     return;
+  }
+
+  if (claudeDesktop && mode === "status") {
+    output({
+      ...(await claudeDesktopBridgeStatus(claudeConfigPath())),
+      credentialsConfigured: ["AGENT_MEMORY_BASE_URL", "AGENT_MEMORY_STORE_ID", "AGENT_MEMORY_API_KEY"]
+        .every((name) => Boolean(process.env[name]?.trim())),
+      retry: "No local retry queue; retry failed MCP tool calls from Claude Desktop.",
+    });
+    return;
+  }
+  if (claudeDesktop && mode === "flush") {
+    throw new Error("Claude Desktop best-effort capture has no local retry queue; retry the MCP tool call in Claude Desktop");
   }
 
   config = captureConfigSchema.parse(JSON.parse(await readFile(join(projectRoot, ".memory-capture.json"), "utf8")));
@@ -165,7 +231,10 @@ async function main() {
 }
 
 main().catch((error: unknown) => {
-  if (mode === "hook" || mode === "flush") {
+  if (mode === "flush" && claudeDesktop) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`ram-capture flush failed: ${message}`);
+  } else if (mode === "hook" || mode === "flush") {
     // Do not print server errors, payloads, headers, credentials, or captured prompts.
     console.error("Redis capture: delivery incomplete; inspect pending queue with capture status and retry with capture flush.");
   } else {

@@ -29,3 +29,5 @@ Run `ram-capture uninstall` or `npm run capture:uninstall` to remove only the in
 For retry behavior, identity overrides, supported events, and implementation details, see the [automatic capture guide](automatic-capture.md). The handler has been tested live for prompt delivery, final-response capture, retry, and cross-client recall using hook payloads. Records use long-term-memory type `message`, not Redis's ordered session-memory API.
 
 The verified native-tool inventory and direct cross-agent workflow are documented separately in [Native Redis Agent Memory tools](native-tools.md).
+
+Claude Desktop uses a different, best-effort workflow without lifecycle hooks or a local retry queue. See [Claude Desktop setup and limitations](claude-desktop.md).

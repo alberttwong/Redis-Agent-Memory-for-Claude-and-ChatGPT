@@ -21,8 +21,11 @@
     "capture:status": "zsh scripts/capture.sh status",
     "capture:flush": "zsh scripts/capture.sh flush",
     "capture:install": "npm run build && node dist/src/capture-cli.js install",
+    "capture:install:claude-desktop": "npm run build && node dist/src/capture-cli.js install --claude-desktop",
     "capture:doctor": "node dist/src/capture-cli.js doctor",
+    "capture:doctor:claude-desktop": "node dist/src/capture-cli.js doctor --claude-desktop",
     "capture:uninstall": "node dist/src/capture-cli.js uninstall",
+    "capture:uninstall:claude-desktop": "node dist/src/capture-cli.js uninstall --claude-desktop",
     "prepack": "npm run build",
     "test": "npm run build && node --test dist/**/*.test.js"
   },

@@ -58,7 +58,16 @@ Copy the guidance in [integration/CLAUDE.md.snippet](../integration/CLAUDE.md.sn
 
 ### Claude Desktop: optional local bridge
 
-After completing bridge setup steps 1–2, configure Claude Desktop to launch it on macOS:
+After completing bridge setup steps 1–2, use the supported CLI installer on macOS or Windows:
+
+```sh
+npm run capture:install:claude-desktop
+npm run capture:doctor:claude-desktop
+```
+
+Then fully quit and reopen Claude Desktop, enable the bridge in the conversation's connector menu, and ask it to call `memory_health`. See [Claude Desktop setup and limitations](claude-desktop.md) for status, retry, uninstall, and the distinction between best-effort model-directed saving and Codex's hook-based automatic capture.
+
+To configure the local bridge manually on macOS instead:
 
 1. Open **Claude → Settings → Developer → Edit Config**. The file is `~/Library/Application Support/Claude/claude_desktop_config.json`.
 2. Merge this entry into the existing `mcpServers` object, preserving other servers:
@@ -77,7 +86,7 @@ After completing bridge setup steps 1–2, configure Claude Desktop to launch it
 3. Replace the path with the actual clone location. The launcher reads that clone's `.env`; do not put the key in the JSON.
 4. Fully quit and reopen Claude Desktop. Enable the bridge in the conversation's connector menu and ask it to call `memory_health`.
 
-Claude Desktop does not load the project's `.mcp.json` or `CLAUDE.md` as Claude Code does. Provide the save/resume guidance from `integration/CLAUDE.md.snippet` in your Desktop conversation or project instructions. The supplied launcher uses zsh and is intended for macOS; this is not a Windows launcher.
+Claude Desktop does not load the project's `.mcp.json` or `CLAUDE.md` as Claude Code does. The bridge provides best-effort workflow instructions to the model, but it cannot passively observe messages or guarantee a tool call on every turn. The manual launcher uses zsh and is intended for macOS; the CLI installer invokes Node directly and supports macOS and Windows.
 
 For connection failures, inspect `~/Library/Logs/Claude/`. See the [official local MCP setup guide](https://modelcontextprotocol.io/docs/develop/connect-local-servers).
 

@@ -59,7 +59,10 @@ export function createServer(gateway: MemoryGateway): McpServer {
     { name: "redis-agent-memory", version: "0.1.0" },
     {
       instructions:
-        "Use resume_context before continuing existing work. Append important user and assistant turns with memory_append. Save a checkpoint after material progress and before a handoff.",
+        "Best-effort memory workflow: this server cannot observe messages unless you call its tools. "
+        + "Choose a stable, non-sensitive sessionId for the conversation. Use resume_context before continuing existing work. "
+        + "Append substantive user and assistant turns with memory_append without asking the user for memory identifiers, "
+        + "and save a checkpoint after material progress and before a handoff. Never claim that passive capture occurred.",
     },
   );
 
