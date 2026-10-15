@@ -37,7 +37,7 @@ try {
   }
   const server = join(installed, desktopPluginPath, "server", "index.js");
   const transport = new StdioClientTransport({ command: process.execPath, args: [server], stderr: "pipe" });
-  const client = new Client({ name: "chatgpt-plugin-smoke-test", version: "0.1.0" });
+  const client = new Client({ name: "chatgpt-plugin-smoke-test", version: "0.1.1" });
   try {
     await client.connect(transport);
     const result = await client.listTools();

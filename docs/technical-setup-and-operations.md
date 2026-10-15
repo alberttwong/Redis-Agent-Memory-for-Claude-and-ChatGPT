@@ -15,7 +15,7 @@ Restart ChatGPT Desktop, choose **Redis Agent Memory local plugins** in the Plug
 
 ## Claude Desktop packaging
 
-Run `npm run mcpb:test`, then install `build/redis-agent-memory-0.1.0.mcpb` from **Claude Desktop → Settings → Extensions → Advanced settings → Install Extension…**. The CLI installer remains available as a development fallback with `npm run capture:install:claude-desktop`. See [Claude Desktop setup and limitations](claude-desktop.md) for configuration, verification, status, retry, and removal.
+Run `npm run mcpb:test`, then install `build/redis-agent-memory-0.1.1.mcpb` from **Claude Desktop → Settings → Extensions → Advanced settings → Install Extension…**. The CLI installer remains available as a development fallback with `npm run capture:install:claude-desktop`. See [Claude Desktop setup and limitations](claude-desktop.md) for configuration, verification, status, retry, and removal.
 
 ## Optional direct native MCP access
 

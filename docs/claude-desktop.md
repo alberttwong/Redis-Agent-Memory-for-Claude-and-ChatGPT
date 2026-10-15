@@ -40,7 +40,7 @@ npm ci
 npm run mcpb:test
 ```
 
-This creates `build/redis-agent-memory-0.1.0.mcpb`. Select that file during installation instead of a downloaded release asset.
+This creates `build/redis-agent-memory-0.1.1.mcpb`. Select that file during installation instead of a downloaded release asset.
 
 ## CLI fallback
 
