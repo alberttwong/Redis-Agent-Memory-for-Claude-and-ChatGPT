@@ -16,7 +16,7 @@ In a local Codex chat inside ChatGPT Desktop, submitted prompts and available fi
 
 - [Claude Desktop quickstart](docs/quickstart-claude-desktop.md): build and install the MCPB extension, verify Redis, and optionally import Claude history.
 - [ChatGPT Desktop quickstart](docs/quickstart-chatgpt-desktop.md): install the local plugin, enable automatic saving, and optionally import ChatGPT history.
-- [Technical setup and operations](docs/technical-setup-and-operations.md): configure capture, package Claude Desktop support, and use the optional native or local bridge tools.
+- [Manual quickstart](docs/technical-setup-and-operations.md): build and cli install and use the optional native or local bridge tools.
 
 ## What is automatic
 
