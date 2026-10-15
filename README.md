@@ -41,8 +41,10 @@ Remote connectors run from Anthropic's infrastructure. Our SDK test verified the
 
 Codex Desktop shares MCP configuration with the CLI on the same host.
 
-1. Open **Settings → MCP servers → Add server**. Choose **Streamable HTTP**, name it `redis-agent-memory`, and enter `<MEMORY_URL>/v1/stores/<MEMORY_STORE_ID>/mcp`.
-2. Configure bearer authentication in your private `~/.codex/config.toml`. Merge this table, replacing any existing table with the same server name rather than duplicating it:
+Use the configuration-file route below; it does not depend on a Desktop settings menu being available.
+
+1. Open your private `~/.codex/config.toml` in a text editor (create the file if needed).
+2. Merge this table, replacing any existing table with the same server name rather than duplicating it. Preserve unrelated configuration:
 
 ```toml
 [mcp_servers.redis-agent-memory]
@@ -51,10 +53,12 @@ http_headers = { Authorization = "Bearer <MEMORY_KEY>" }
 ```
 
 3. Replace the placeholders privately. This configuration contains a credential; keep it out of Git. Alternatively, replace `http_headers` with `bearer_token_env_var = "AGENT_MEMORY_API_KEY"` and ensure that variable is present in the Desktop app's launch environment. The project's `.env` is not automatically loaded by a native HTTP connection.
-4. Save and select **Restart** in MCP settings. Start a fresh chat and use `/mcp` to check connection status.
+4. Save the file, fully quit and reopen Codex Desktop, and start a fresh local chat. If the Codex CLI is installed, run `codex mcp list` to confirm the server is configured; listing alone does not verify live connectivity.
 5. Ask Codex to call `search_long_term_memory` with `owner_id` `desktop-test`, `namespace` `desktop-test`, and `limit` 1, without writing or deleting memories.
 
-These instructions follow the [official OpenAI MCP documentation](https://learn.chatgpt.com/docs/extend/mcp?surface=app). The endpoint was tested with an SDK client; Desktop setup has not been verified end to end.
+For an environment-based configuration, the CLI can also register the server with `codex mcp add redis-agent-memory --url "<MEMORY_URL>/v1/stores/<MEMORY_STORE_ID>/mcp" --bearer-token-env-var AGENT_MEMORY_API_KEY`. The Desktop process must still receive that environment variable.
+
+See the [official OpenAI MCP configuration documentation](https://learn.chatgpt.com/docs/extend/mcp?surface=app#configure-with-configtoml). The endpoint was tested with an SDK client; Desktop setup has not been verified end to end.
 
 ### Verified native tools
 
