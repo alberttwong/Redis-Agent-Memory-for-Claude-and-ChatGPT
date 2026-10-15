@@ -8,7 +8,11 @@ The repository ships two OpenAI plugin profiles because automatic saving and pub
 
 The local profile bundles the stdio MCP server, project setup skill, and lifecycle hooks. It supports automatic saving and retry in configured projects running as local ChatGPT/Codex desktop chats.
 
-Build and verify it:
+For installation, download `redis-agent-memory-chatgpt-local-<version>.zip` from the [latest release](https://github.com/alberttwong/redis-agent-memory-mcp/releases/latest) and follow the [ChatGPT Desktop quickstart](quickstart-chatgpt-desktop.md). The ZIP includes the server and capture CLI with their JavaScript dependencies bundled. Node.js 20.12 or later is required at runtime; npm and compilation are not required for release installation.
+
+### Build from source
+
+For development, clone this repository, install Node.js 20.12 or later, and run from the repository root:
 
 ```sh
 npm ci
