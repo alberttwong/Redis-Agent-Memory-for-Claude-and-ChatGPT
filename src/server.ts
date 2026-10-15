@@ -62,7 +62,7 @@ export function createServer(gateway: MemoryGateway): McpServer {
         "Best-effort memory workflow: this server cannot observe messages unless you call its tools. "
         + "Choose a stable, non-sensitive sessionId for the conversation. Use resume_context before continuing existing work. "
         + "Append substantive user and assistant turns with memory_append without asking the user for memory identifiers, "
-        + "and save a checkpoint after material progress and before a handoff. Never claim that passive capture occurred.",
+        + "and save a checkpoint after material progress and before a handoff. Never store passwords, API keys, tokens, private keys, raw environment files, or sensitive personal information (PII), including contact details, government IDs, financial or medical information. Omit sensitive details or use placeholders in text, metadata, checkpoints, and identifiers; when unsure, do not store the detail. Never claim that passive capture occurred.",
     },
   );
 
@@ -81,7 +81,7 @@ export function createServer(gateway: MemoryGateway): McpServer {
     {
       title: "Append conversation memory",
       description:
-        "Append one user, assistant, or system event to ordered session memory.",
+        "Append a sanitized user, assistant, or system event to ordered session memory. Omit credentials and sensitive personal information.",
       inputSchema: {
         sessionId: id.describe("Durable task/session ID shared by all agents"),
         role: z.enum(["USER", "ASSISTANT", "SYSTEM"]),
@@ -159,7 +159,7 @@ export function createServer(gateway: MemoryGateway): McpServer {
     {
       title: "Save agent handoff checkpoint",
       description:
-        "Create or update the canonical durable checkpoint for a task session.",
+        "Create or update the canonical durable checkpoint for a task session. Omit credentials and sensitive personal information from every field.",
       inputSchema: {
         sessionId: id,
         summary: z.string().min(1).max(20_000),

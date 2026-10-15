@@ -51,3 +51,6 @@ This copies only Redis memory settings from the project's `.env` into `~/.config
 Process environment values take precedence, followed by non-empty project `.env` values, then shared settings. Blank template values do not shadow shared settings. Doctor reports the credential sources without their values. Run doctor against another worktree to verify fallback; do not copy the API key into chat.
 
 Both the capture CLI and bridge use this resolution. Keep `.memory-capture.json` enabled in each project that should capture turns. Shared credentials do not enable capture in unconfigured projects.
+## Memory privacy guardrails
+
+Never store passwords, API keys, access tokens, private keys, raw environment files, or sensitive personal information (PII), including contact details, government IDs, financial details, and medical information. Apply this rule to memory text, metadata, checkpoints, imports, and identifiers. Omit sensitive details or use placeholders; when unsure, leave the detail out. Automatic redaction is a fallback and cannot detect all sensitive information.

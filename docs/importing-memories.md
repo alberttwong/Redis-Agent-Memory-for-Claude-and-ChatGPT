@@ -54,7 +54,7 @@ Owner and namespace default to the same project configuration and environment va
 ## Safety and retries
 
 - The importer limits compressed input, extracted data, and individual archive members.
-- Known Redis, Anthropic, and OpenAI API-key patterns are redacted before records enter the queue.
+- Configured credentials and recognized secret/PII patterns are redacted from content and envelope fields (including titles) before queueing. This is best effort; remove sensitive material from exports before importing and review the preview. Never import passwords or sensitive personal information.
 - Records use Redis Agent Memory's `message` memory type, include owner, namespace, session, and topic fields, and are written in batches of at most 100.
 - Record IDs are deterministic, satisfy the Redis identifier limits, and make delivery retries idempotent.
 - `--write` enqueues records before connecting to Redis. Missing credentials or service outages leave the batch in `.memory-capture/queue` for `ram-capture flush`.

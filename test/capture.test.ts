@@ -92,3 +92,23 @@ test("partial failure preserves complete queued payload and concurrent flush doe
     assert.equal(await pendingCount(directory), 0);
   } finally { await rm(directory, {recursive: true, force: true}); }
 });
+
+test("capture and queue sanitize sensitive content before persistence and retry upload", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "memory-privacy-test-"));
+  try {
+    const captured = makeEntry(config, "/project", "codex", { ...input, prompt: "password: hunter2\nContact person@example.com" })!;
+    assert(!JSON.stringify(captured).includes("hunter2"));
+    assert(!JSON.stringify(captured).includes("person@example.com"));
+    const legacy = { ...captured, memories: captured.memories.map(memory => ({ ...memory, text: JSON.stringify({ content: "password: hunter2", title: "person@example.com" }) })) };
+    const path = await enqueue(directory, legacy);
+    assert(!(await readFile(path, "utf8")).includes("hunter2"));
+    // Simulate a file queued by a previous release, which bypassed enqueue filtering.
+    const { writeFile } = await import("node:fs/promises");
+    await writeFile(path, JSON.stringify(legacy));
+    await flush(directory, client(async memories => {
+      assert(!JSON.stringify(memories).includes("hunter2"));
+      assert(!JSON.stringify(memories).includes("person@example.com"));
+      return { created: memories.map(memory => memory.id) };
+    }));
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});

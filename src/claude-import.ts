@@ -1,3 +1,4 @@
+import { redactSensitiveText, sanitizeMemory } from "./privacy.js";
 import { createHash } from "node:crypto";
 import { readFile, readdir, stat } from "node:fs/promises";
 import { basename, extname, join } from "node:path";
@@ -271,13 +272,6 @@ async function sourceDocuments(inputPath: string): Promise<Array<{ name: string;
   return documents;
 }
 
-function redact(value: string, secrets: string[]): string {
-  let result = value;
-  for (const secret of secrets.filter(Boolean)) result = result.replaceAll(secret, "[REDACTED]");
-  return result
-    .replace(/mem1_[A-Za-z0-9_=-]+/g, "[REDACTED]")
-    .replace(/sk-(?:ant-|proj-)?[A-Za-z0-9_-]{12,}/g, "[REDACTED]");
-}
 
 function included(item: ParsedItem, options: ClaudeImportOptions): boolean {
   if (options.conversation && !item.conversationTitle.toLowerCase().includes(options.conversation.toLowerCase())) {
@@ -298,12 +292,12 @@ function records(items: ParsedItem[], options: ClaudeImportOptions, provider: Im
 } {
   const selected = items.filter((item) => included(item, options)).slice(0, options.limit);
   return { selected: selected.length, records: selected.flatMap((item) => {
-    const content = redact(item.content, options.secrets ?? []);
+    const content = redactSensitiveText(item.content, options.secrets ?? []);
     const chunks = content.match(/[\s\S]{1,6000}/g) ?? [];
     const sessionId = `${provider}-${digest(item.conversationId)}`;
     return chunks.map((chunk, part) => ({
       id: `${provider}-${digest(JSON.stringify([item.sourceFile, item.conversationId, item.messageId, part, chunk]))}`,
-      text: JSON.stringify({
+      text: JSON.stringify(sanitizeMemory({
         role: item.role,
         source: `${provider}-import`,
         sourceFile: item.sourceFile,
@@ -314,7 +308,7 @@ function records(items: ParsedItem[], options: ClaudeImportOptions, provider: Im
         part: part + 1,
         parts: chunks.length,
         content: chunk,
-      }),
+      }, options.secrets ?? [])),
       memory_type: "message" as const,
       owner_id: options.ownerId,
       namespace: options.namespace,

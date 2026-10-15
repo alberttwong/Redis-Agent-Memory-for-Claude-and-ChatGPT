@@ -49,7 +49,7 @@ Project namespaces must match across clones if cross-computer recall is desired.
 - `UserPromptSubmit` saves the supplied prompt before the model processes it.
 - `Stop` saves `last_assistant_message` when supplied by the client. Missing final-message fields are skipped; intermediate assistant messages, tool output, files, hidden reasoning, and aborted responses are not captured.
 - Each record includes capture time, role, client, original session ID, optional turn ID, and chunk order. Long inputs are split into bounded records without discarding content.
-- The configured Redis API key and recognizable `mem1_` credentials are redacted before queueing. This is not a general-purpose secret detector: other text is captured as supplied.
+- The configured Redis API key and recognized credentials, labelled sensitive values, email addresses, US phone/SSN patterns, and card-number-like sequences are redacted before new records enter the local queue. Queued text is checked again before upload. Detection is best effort: omit sensitive information and disable capture for sensitive conversations, since names, addresses, and contextual PII may not be recognized. Existing stored records and older queue files are not retroactively cleaned.
 
 The handler uses the **native MCP `create_long_term_memories` tool with `memory_type: "message"`**. This is explicit transcript capture; it does not use Redis's ordered session-memory API or trigger that API's summarization/extraction path. Each captured chunk is embedded and subject to long-term-memory retention/cost. A native MCP session-append tool was not advertised by the tested deployment. The bridge's existing session tools remain available separately.
 

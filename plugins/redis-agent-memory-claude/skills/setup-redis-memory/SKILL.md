@@ -21,3 +21,7 @@ node "${CLAUDE_PLUGIN_ROOT}/server/capture-cli.mjs" doctor --plugin --project "$
 Claude substitutes the plugin paths in this skill when loading it. These commands create a missing `.memory-capture.json` with capture enabled and ignore the local retry queue. Existing configuration, including an explicit opt-out, is preserved. Explain that prompts and available final responses will be saved to Redis and temporarily queued locally during outages. No `.env` edits are needed when the browser connection is configured. The doctor checks local setup; it does not prove live delivery or hook activation.
 
 Start a new local Claude Code session with the plugin enabled and inspect `/hooks` for `SessionStart`, `UserPromptSubmit`, and `Stop`. Submit a test prompt and retrieve its saved record to verify delivery. Do not claim capture is active solely because doctor passes. To disable capture, set `enabled` to `false` in `.memory-capture.json`. Ordinary Desktop Chat does not run these hooks.
+
+## Memory privacy guardrails
+
+Never store passwords, API keys, access tokens, private keys, raw environment files, or sensitive personal information (PII), including contact details, government IDs, financial details, and medical information. Apply this rule to memory text, metadata, checkpoints, imports, and identifiers. Omit sensitive details or use placeholders; when unsure, leave the detail out. Automatic redaction is a fallback and cannot detect all sensitive information.

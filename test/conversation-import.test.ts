@@ -135,3 +135,18 @@ test("CLI previews by default and preserves write attempts for retry", async () 
     await rm(project, { recursive: true, force: true });
   }
 });
+
+test("imports sanitize PII in titles and credentials in content for both providers", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "ram-private-import-"));
+  const input = join(directory, "conversations.json");
+  try {
+    for (const provider of ["claude", "chatgpt"]) {
+      const message = { id: "message-1", sender: "human", text: "password: hunter2", author: { role: "user" }, content: { parts: ["password: hunter2"] } };
+      await writeFile(input, JSON.stringify([{ id: "chat-1", title: "person@example.com", messages: [message], mapping: { first: { message } } }]));
+      const plan = await (provider === "claude" ? planClaudeImport : planChatGptImport)(input, options);
+      assert.equal(plan.records.length, 1);
+      assert(!JSON.stringify(plan.records).includes("hunter2"));
+      assert(!JSON.stringify(plan.records).includes("person@example.com"));
+    }
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});

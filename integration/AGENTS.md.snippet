@@ -5,3 +5,7 @@
 - Append important user and assistant turns with `memory_append`. Do not write secrets, credentials, raw environment files, or sensitive personal data.
 - After material progress and before a handoff, call `checkpoint_save`. Include the current goal, completed work, next steps, blockers, repository path, branch, commit, and changed files when known.
 - Treat the repository and Git state as the source of truth for code. Redis memory is context, not a replacement for the working tree.
+
+## Memory privacy guardrails
+
+Never store passwords, API keys, access tokens, private keys, raw environment files, or sensitive personal information (PII), including contact details, government IDs, financial details, and medical information. Apply this rule to memory text, metadata, checkpoints, imports, and identifiers. Omit sensitive details or use placeholders; when unsure, leave the detail out. Automatic redaction is a fallback and cannot detect all sensitive information.

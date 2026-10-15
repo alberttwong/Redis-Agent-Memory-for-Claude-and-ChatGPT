@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { mkdir, readFile, readdir, rename, unlink, writeFile, open } from "node:fs/promises";
 import { basename, join } from "node:path";
+import { redactSensitiveText, sanitizeMemory, sanitizeCapturedText } from "./privacy.js";
 import { defaultOwnerId } from "./identity.js";
 import * as z from "zod/v4";
 
@@ -62,8 +63,7 @@ export function makeEntry(
     : input.hook_event_name === "Stop" ? "ASSISTANT" : undefined;
   let content = role === "USER" ? input.prompt : role === "ASSISTANT" ? input.last_assistant_message : undefined;
   if (!content || !role) return null;
-  for (const secret of secrets.filter(Boolean)) content = content.replaceAll(secret, "[REDACTED]");
-  content = content.replace(/mem1_[A-Za-z0-9_=-]+/g, "[REDACTED]");
+  content = redactSensitiveText(content, secrets);
   const resolved = scope(config, root, source, input);
   // Codex provides a turn ID. Claude events without one get a fresh identity so
   // submitting the same prompt twice still captures two separate turns.
@@ -72,8 +72,8 @@ export function makeEntry(
   const chunks = content.match(/[\s\S]{1,6000}/g) ?? [];
   return { version: 1, memories: chunks.map((text, index) => ({
     id: `turn-${digest(JSON.stringify([resolved, source, eventIdentity, role, index]))}`,
-    text: JSON.stringify({ role, source, sourceSessionId: input.session_id,
-      turnId: input.turn_id, capturedAt: now, part: index + 1, parts: chunks.length, content: text }),
+    text: JSON.stringify(sanitizeMemory({ role, source, sourceSessionId: input.session_id,
+      turnId: input.turn_id, capturedAt: now, part: index + 1, parts: chunks.length, content: text }, secrets)),
     memory_type: "message", owner_id: resolved.owner, namespace: resolved.namespace,
     session_id: resolved.session, topics: ["auto-capture", source, role.toLowerCase()],
   })) };
@@ -84,7 +84,7 @@ export async function enqueue(directory: string, entry: QueueEntry): Promise<str
   const filename = `${Date.now()}-${randomUUID()}.json`;
   const temporary = join(directory, `${filename}.tmp`);
   const final = join(directory, filename);
-  await writeFile(temporary, JSON.stringify(entry), { mode: 0o600, flag: "wx" });
+  await writeFile(temporary, JSON.stringify({ ...entry, memories: entry.memories.map(memory => ({ ...memory, text: sanitizeCapturedText(memory.text) })) }), { mode: 0o600, flag: "wx" });
   await rename(temporary, final);
   return final;
 }
@@ -124,7 +124,7 @@ export async function flush(directory: string, transport: CaptureTransport): Pro
       const entry = JSON.parse(await readFile(path, "utf8")) as QueueEntry;
       if (entry.version !== 1 || !Array.isArray(entry.memories)) throw new Error("Invalid capture queue entry");
       for (let start = 0; start < entry.memories.length; start += 100) {
-        const batch = entry.memories.slice(start, start + 100);
+        const batch = entry.memories.slice(start, start + 100).map(memory => ({ ...memory, text: sanitizeCapturedText(memory.text) }));
         const response = await transport.create(batch);
         if (response.errors?.length || batch.some(memory => !response.created.includes(memory.id))) {
           throw new Error("Capture write was not fully acknowledged; retained for retry");
