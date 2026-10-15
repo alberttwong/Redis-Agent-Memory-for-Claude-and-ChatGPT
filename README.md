@@ -1,6 +1,10 @@
 # Redis Agent Memory MCP bridge
 
-Share Redis Agent Memory between Claude Code and Codex using Redis's native MCP endpoint. For standard long-term memory operations, connect directly to Redis without running this project's local server. This repository also includes an optional bridge for ordered session events and structured task checkpoints.
+Share Redis Agent Memory between Claude Desktop, Claude Code, and Codex using Redis's native MCP endpoint. For standard long-term memory operations, connect directly to Redis without running this project's local server. This repository also includes an optional bridge for ordered session events and structured task checkpoints.
+
+**Using Claude Desktop?** Follow [Claude Desktop: native connector](#claude-desktop-native-connector) below. For the local bridge, see [Claude Desktop: optional local bridge](#claude-desktop-optional-local-bridge).
+
+**Using Codex Desktop?** Follow [Codex Desktop: native MCP](#codex-desktop-native-mcp) below, or the [optional bridge setup](#4-connect-codex).
 
 ## Recommended: connect to the native MCP endpoint
 
@@ -20,6 +24,37 @@ Configure both clients to use the same Agent Memory service and store:
 ```
 
 This illustrates the endpoint and authentication; use your client's supported configuration format and secret storage. `<MEMORY_URL>` is the HTTPS service endpoint, `<MEMORY_STORE_ID>` identifies your store, and `<MEMORY_KEY>` is its API key. The placeholder template is also available in `.mcp.native.json.example`. No local Node process or bridge installation is required for a direct connection. Keep populated configuration containing the key outside source control.
+
+### Claude Desktop: native connector
+
+Add the remote connector through Claude's account settings; the generic JSON example above is not a Claude Desktop local-server configuration.
+
+1. Open **Customize → Connectors → + Add → Add custom connector**. On Team/Enterprise, an authorized owner may need to add it under **Organization settings → Connectors** first.
+2. Name it `Redis Agent Memory` and enter `<MEMORY_URL>/v1/stores/<MEMORY_STORE_ID>/mcp` as the remote server URL. Click **Continue**.
+3. For the Redis API-key endpoint tested here, choose **No sign in** for OAuth authentication. Under **Request headers**, add `Authorization` with value `Bearer <MEMORY_KEY>`. Enter the actual key privately in that field, not in chat or the URL.
+4. Click **Add**, then connect if prompted. In a conversation, open **+ → Connectors** and enable Redis Agent Memory.
+5. Ask: “Use `search_long_term_memory` with `owner_id` `desktop-test`, `namespace` `desktop-test`, and `limit` 1. Do not create or delete memories.” An empty successful result is sufficient.
+
+Remote connectors run from Anthropic's infrastructure. Our SDK test verified the Redis endpoint, not this Desktop setup end to end. See [Anthropic's remote connector guide](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp).
+
+### Codex Desktop: native MCP
+
+Codex Desktop shares MCP configuration with the CLI on the same host.
+
+1. Open **Settings → MCP servers → Add server**. Choose **Streamable HTTP**, name it `redis-agent-memory`, and enter `<MEMORY_URL>/v1/stores/<MEMORY_STORE_ID>/mcp`.
+2. Configure bearer authentication in your private `~/.codex/config.toml`. Merge this table, replacing any existing table with the same server name rather than duplicating it:
+
+```toml
+[mcp_servers.redis-agent-memory]
+url = "<MEMORY_URL>/v1/stores/<MEMORY_STORE_ID>/mcp"
+http_headers = { Authorization = "Bearer <MEMORY_KEY>" }
+```
+
+3. Replace the placeholders privately. This configuration contains a credential; keep it out of Git. Alternatively, replace `http_headers` with `bearer_token_env_var = "AGENT_MEMORY_API_KEY"` and ensure that variable is present in the Desktop app's launch environment. The project's `.env` is not automatically loaded by a native HTTP connection.
+4. Save and select **Restart** in MCP settings. Start a fresh chat and use `/mcp` to check connection status.
+5. Ask Codex to call `search_long_term_memory` with `owner_id` `desktop-test`, `namespace` `desktop-test`, and `limit` 1, without writing or deleting memories.
+
+These instructions follow the [official OpenAI MCP documentation](https://learn.chatgpt.com/docs/extend/mcp?surface=app). The endpoint was tested with an SDK client; Desktop setup has not been verified end to end.
 
 ### Verified native tools
 
@@ -200,6 +235,31 @@ cp .mcp.json.example .mcp.json
 ```
 
 Copy the guidance in `integration/CLAUDE.md.snippet` into that project's `CLAUDE.md`. Start a fresh Claude Code session after changing MCP configuration.
+
+### Claude Desktop: optional local bridge
+
+After completing bridge setup steps 1–2, configure Claude Desktop to launch it on macOS:
+
+1. Open **Claude → Settings → Developer → Edit Config**. The file is `~/Library/Application Support/Claude/claude_desktop_config.json`.
+2. Merge this entry into the existing `mcpServers` object, preserving other servers:
+
+```json
+{
+  "mcpServers": {
+    "redis-agent-memory-bridge": {
+      "command": "/bin/zsh",
+      "args": ["/absolute/path/to/redis-agent-memory-mcp/scripts/start.sh"]
+    }
+  }
+}
+```
+
+3. Replace the path with the actual clone location. The launcher reads that clone's `.env`; do not put the key in the JSON.
+4. Fully quit and reopen Claude Desktop. Enable the bridge in the conversation's connector menu and ask it to call `memory_health`.
+
+Claude Desktop does not load the project's `.mcp.json` or `CLAUDE.md` as Claude Code does. Provide the save/resume guidance from `integration/CLAUDE.md.snippet` in your Desktop conversation or project instructions. The supplied launcher uses zsh and is intended for macOS; this is not a Windows launcher.
+
+For connection failures, inspect `~/Library/Logs/Claude/`. See the [official local MCP setup guide](https://modelcontextprotocol.io/docs/develop/connect-local-servers).
 
 ### 4. Connect Codex
 
