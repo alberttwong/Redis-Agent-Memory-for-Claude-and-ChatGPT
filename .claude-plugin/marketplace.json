@@ -1,0 +1,18 @@
+{
+  "name": "redis-agent-memory",
+  "owner": {
+    "name": "Albert Wong"
+  },
+  "metadata": {
+    "description": "Shared project memory and agent handoffs with Redis Agent Memory."
+  },
+  "plugins": [
+    {
+      "name": "redis-agent-memory",
+      "source": "./plugins/redis-agent-memory-claude",
+      "description": "Recall project context and save progress with Redis Agent Memory.",
+      "version": "0.1.1",
+      "category": "productivity"
+    }
+  ]
+}

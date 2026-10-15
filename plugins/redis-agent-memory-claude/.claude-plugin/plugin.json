@@ -1,0 +1,12 @@
+{
+  "name": "redis-agent-memory",
+  "version": "0.1.1",
+  "description": "Recall project context and save agent handoff checkpoints with Redis Agent Memory.",
+  "author": {
+    "name": "Albert Wong",
+    "url": "https://github.com/alberttwong"
+  },
+  "homepage": "https://github.com/alberttwong/redis-agent-memory-mcp",
+  "repository": "https://github.com/alberttwong/redis-agent-memory-mcp",
+  "mcpServers": "https://github.com/alberttwong/redis-agent-memory-mcp/releases/download/v0.1.1/redis-agent-memory-0.1.1.mcpb"
+}
