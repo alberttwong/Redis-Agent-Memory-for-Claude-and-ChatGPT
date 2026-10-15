@@ -92,7 +92,7 @@ For connection failures, inspect `~/Library/Logs/Claude/`. See the [official loc
 
 ### 4. Connect Codex
 
-These steps add the optional structured session/checkpoint tools. Automatic saving is configured separately through the README's [quick start](../README.md#quick-start).
+These steps add the optional structured session/checkpoint tools. Automatic saving is configured separately through the [ChatGPT Desktop quickstart](quickstart-chatgpt-desktop.md).
 
 Register the stdio bridge under a separate name to preserve an existing native connection:
 

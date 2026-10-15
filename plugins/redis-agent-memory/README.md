@@ -1,0 +1,9 @@
+# Redis Agent Memory desktop plugin
+
+This is the manually installed ChatGPT/Codex desktop profile. It bundles a local stdio MCP server, a setup skill, and trusted lifecycle hooks for default-enabled automatic saving in configured projects.
+
+The hook does nothing in projects without `.memory-capture.json`. Run the `setup-redis-memory` skill after installation to create the project configuration and private `.env` template.
+
+Because this package contains lifecycle hooks, it is for local or repository marketplaces and is not eligible for the public plugin directory.
+
+From the repository root, run `npm run plugin:test` to validate both plugin profiles and smoke-test the bundled local runtime. Run `npm run plugin:build` to create the distributable local ZIP under `build/`.

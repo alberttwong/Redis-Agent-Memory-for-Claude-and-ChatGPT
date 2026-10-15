@@ -7,11 +7,26 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   captureHookStatus,
+  configureCaptureProject,
   hasCaptureHooks,
   installCapture,
   removeCaptureHooks,
   uninstallCapture,
 } from "../src/capture-install.js";
+
+test("plugin configuration creates project files without installing project hooks", async () => {
+  const project = await mkdtemp(join(tmpdir(), "ram-capture-plugin-configure-"));
+  try {
+    const result = await configureCaptureProject(project);
+
+    assert.equal(result.createdCaptureConfig, true);
+    assert.equal(result.createdEnvironment, true);
+    assert.equal(JSON.parse(await readFile(join(project, ".memory-capture.json"), "utf8")).enabled, true);
+    await assert.rejects(readFile(join(project, ".codex", "hooks.json")), { code: "ENOENT" });
+  } finally {
+    await rm(project, { recursive: true, force: true });
+  }
+});
 
 test("installer preserves existing hooks and is idempotent", async () => {
   const project = await mkdtemp(join(tmpdir(), "ram-capture-install-"));
@@ -143,6 +158,35 @@ test("CLI installs and diagnoses a configured project without network access", a
     });
     assert.equal(doctor.status, 0, doctor.stderr);
     assert.deepEqual(JSON.parse(doctor.stdout).issues, []);
+  } finally {
+    await rm(project, { recursive: true, force: true });
+  }
+});
+
+test("CLI configures and diagnoses a plugin-managed project without project hooks", async () => {
+  const project = await mkdtemp(join(tmpdir(), "ram-capture-plugin-cli-"));
+  const cli = fileURLToPath(new URL("../src/capture-cli.js", import.meta.url));
+  try {
+    const configure = spawnSync(process.execPath, [cli, "configure", "--project", project], {
+      encoding: "utf8",
+    });
+    assert.equal(configure.status, 0, configure.stderr);
+
+    await writeFile(
+      join(project, ".env"),
+      [
+        "AGENT_MEMORY_BASE_URL=https://memory.example.test",
+        "AGENT_MEMORY_STORE_ID=store-1",
+        "AGENT_MEMORY_API_KEY=test-only",
+        "",
+      ].join("\n"),
+    );
+    const doctor = spawnSync(process.execPath, [cli, "doctor", "--plugin", "--project", project], {
+      encoding: "utf8",
+    });
+    assert.equal(doctor.status, 0, doctor.stderr);
+    assert.equal(JSON.parse(doctor.stdout).hookSource, "plugin");
+    await assert.rejects(readFile(join(project, ".codex", "hooks.json")), { code: "ENOENT" });
   } finally {
     await rm(project, { recursive: true, force: true });
   }

@@ -8,6 +8,8 @@
     "dist/src/",
     "docs/",
     "mcpb/",
+    "plugins/",
+    ".agents/plugins/",
     "scripts/",
     "README.md"
   ],
@@ -32,6 +34,10 @@
     "mcpb:validate": "node scripts/validate-mcpb.mjs",
     "mcpb:build": "node scripts/build-mcpb.mjs",
     "mcpb:test": "npm run mcpb:validate && npm run mcpb:build && node scripts/smoke-mcpb.mjs",
+    "plugin:validate": "node scripts/validate-chatgpt-plugin.mjs",
+    "plugin:build": "node scripts/build-chatgpt-plugin.mjs",
+    "plugin:build:remote": "node scripts/build-chatgpt-plugin.mjs --remote-url",
+    "plugin:test": "npm run plugin:validate && npm run plugin:build && node scripts/build-chatgpt-plugin.mjs --remote-url https://memory.example.test/mcp --output build/redis-agent-memory-chatgpt-remote-test.zip && node scripts/smoke-chatgpt-plugin.mjs",
     "prepack": "npm run build",
     "test": "npm run build && node --test dist/**/*.test.js"
   },

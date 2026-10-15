@@ -1,0 +1,23 @@
+{
+  "name": "redis-agent-memory-local",
+  "interface": {
+    "displayName": "Redis Agent Memory local plugins"
+  },
+  "plugins": [
+    {
+      "name": "redis-agent-memory",
+      "source": {
+        "source": "local",
+        "path": "./build/chatgpt-plugin/local"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity",
+      "interface": {
+        "displayName": "Redis Agent Memory"
+      }
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "redis-agent-memory",
+  "version": "0.1.0",
+  "description": "Recall project context and save agent handoffs with a hosted Redis Agent Memory MCP server.",
+  "author": {
+    "name": "Albert Wong",
+    "url": "https://github.com/alberttwong"
+  },
+  "homepage": "https://github.com/alberttwong/redis-agent-memory-mcp",
+  "repository": "https://github.com/alberttwong/redis-agent-memory-mcp",
+  "keywords": ["memory", "redis", "chatgpt", "handoff"],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "Redis Agent Memory",
+        "shortDescription": "Durable memory and cross-agent handoffs",
+        "longDescription": "Recall durable project context, append important session events, and save checkpoints through a hosted Redis Agent Memory MCP server.",
+        "developerName": "Albert Wong",
+        "category": "Productivity",
+        "capabilities": [
+          "Recall durable project context",
+          "Record important session events",
+          "Save and resume agent handoffs"
+        ],
+        "websiteURL": "https://github.com/alberttwong/redis-agent-memory-mcp"
+      }
+    }
+  }
+}

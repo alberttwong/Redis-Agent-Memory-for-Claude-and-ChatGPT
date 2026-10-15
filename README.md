@@ -15,7 +15,8 @@ In a local Codex chat inside ChatGPT Desktop, submitted prompts and available fi
 ## Choose a quickstart
 
 - [Claude Desktop quickstart](docs/quickstart-claude-desktop.md): build and install the MCPB extension, verify Redis, and optionally import Claude history.
-- [ChatGPT Desktop quickstart](docs/quickstart-chatgpt-desktop.md): enable automatic saving in a local Codex project and optionally import ChatGPT history.
+- [ChatGPT Desktop quickstart](docs/quickstart-chatgpt-desktop.md): install the local plugin, enable automatic saving, and optionally import ChatGPT history.
+- [Technical setup and operations](docs/technical-setup-and-operations.md): configure capture, package Claude Desktop support, and use the optional native or local bridge tools.
 
 ## What is automatic
 
@@ -84,27 +85,6 @@ Have Claude Code investigate a failing test, record attempted fixes and findings
 
 Configure a separate namespace for each project and use a distinct session ID for each task. Semantic recall includes the owner filter and, when configured, the namespace filter. This keeps unrelated project memories out of ordinary searches; these filters organize retrieval and do not replace service authentication or authorization.
 
-## Technical setup and operations
-
-For local Codex automatic capture, the installer creates trusted-project hook configuration, a default-enabled `.memory-capture.json`, a private `.env` template, and a local retry queue:
-
-```sh
-git clone https://github.com/alberttwong/redis-agent-memory-mcp.git
-cd redis-agent-memory-mcp
-npm ci
-npm run capture:install
-```
-
-Add `AGENT_MEMORY_BASE_URL`, `AGENT_MEMORY_STORE_ID`, and `AGENT_MEMORY_API_KEY` to `.env`, then run `npm run capture:doctor`. Open the repository in a local Codex chat, review and trust the hook with `/hooks`, and start a new session. See [Automatic capture](docs/automatic-capture.md) and [Automatic saving operations](docs/automatic-saving-operations.md) for identity, retries, another-project installation, and removal.
-
-### Claude Desktop packaging
-
-Run `npm run mcpb:test`, then install `build/redis-agent-memory-0.1.0.mcpb` from **Claude Desktop → Settings → Extensions → Advanced settings → Install Extension…**. The CLI installer remains available as a development fallback with `npm run capture:install:claude-desktop`. See [Claude Desktop setup and limitations](docs/claude-desktop.md) for configuration, verification, status, retry, and removal.
-
-### Optional direct native MCP access
-
-Automatic saving does not require agent-facing native MCP access. See [Optional native MCP connector setup](docs/native-mcp-setup.md) when Claude Desktop or Codex should also perform explicit memory searches, writes, or document operations.
-
 ## Architecture
 
 The recommended direct connection shares long-term memory through the native endpoint:
@@ -149,19 +129,6 @@ Each client launches its own local bridge process. Both processes use the same R
 `memory_append` writes session events. `checkpoint_save` writes or updates a deterministic long-term memory record for the task. `resume_context` fetches that checkpoint directly, retrieves session history, and searches for relevant long-term memories in parallel.
 
 The MCP bridge records content agents send through its tools. The default-enabled [capture hooks](docs/automatic-capture.md) save submitted prompts and available final responses without tool calls by the model. Neither mechanism detects exhausted credits, switches clients, or transfers hidden reasoning. Share or synchronize the working tree separately.
-
-## Optional bridge tools
-
-- `memory_health` checks the configured Redis Agent Memory store.
-- `memory_append` records an ordered user, assistant, or system event.
-- `memory_get_session` retrieves the session summary and retained events.
-- `memory_search` performs owner- and namespace-scoped semantic recall.
-- `checkpoint_save` creates or updates the task's durable handoff record.
-- `resume_context` returns the exact checkpoint, current session, and relevant long-term memories together.
-
-## Optional bridge setup
-
-For structured checkpoints and ordered session history, see the separate [optional bridge setup guide](docs/bridge-setup.md). It includes Claude Code, Claude Desktop, Codex, and the bridge handoff workflow.
 
 ## Security notes
 
