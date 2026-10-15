@@ -16,8 +16,6 @@ if [[ ! -f "$PROJECT_DIR/dist/src/index.js" ]]; then
   npm run build >&2
 fi
 
-if [[ -f "$PROJECT_DIR/.env" ]]; then
-  exec node --env-file="$PROJECT_DIR/.env" "$PROJECT_DIR/dist/src/index.js"
-fi
-
+# The server resolves project .env first and shared Redis settings as fallback.
+export MEMORY_CAPTURE_PROJECT_ROOT="$PROJECT_DIR"
 exec node "$PROJECT_DIR/dist/src/index.js"

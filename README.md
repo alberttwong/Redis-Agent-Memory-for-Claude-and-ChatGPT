@@ -31,6 +31,8 @@ Claude Desktop currently uses the plugin's browser form for Redis credentials be
 
 Automatic saving is enabled by default. It can be disabled explicitly in `.memory-capture.json`. Claude Desktop remains model-directed because ordinary Desktop Chat does not expose the lifecycle hooks needed for passive capture.
 
+To reuse Redis credentials across worktrees and separate checkouts, configure [shared settings outside Git](docs/automatic-saving-operations.md#reuse-redis-settings-across-worktrees-and-checkouts). Each project can override them in its own `.env`.
+
 ## Import existing history
 
 Both importers are dry runs unless `--write` is supplied:

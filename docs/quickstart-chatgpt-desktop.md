@@ -58,6 +58,16 @@ Keep the API key in `.env`; do not paste it into chat. Then send:
 
 Resolve any reported setup issues before continuing. Repeat this step for each project you want to remember.
 
+### Reuse credentials in other worktrees
+
+After one checkout is configured, ask:
+
+> Use setup-redis-memory to share this project's Redis settings across worktrees and checkouts.
+
+The plugin saves only Redis settings in a private file outside Git. New configured worktrees and separate checkouts can use them automatically, while a local `.env` can override them. Run the plugin-aware doctor in the new chat; a missing project `.env` is fine when its credential sources are `shared`.
+
+This requires ChatGPT plugin **v0.1.3 or later**. Update the plugin and start a fresh local chat after upgrading. See [shared settings and precedence](automatic-saving-operations.md#reuse-redis-settings-across-worktrees-and-checkouts).
+
 ## 3. Start a fresh chat and verify saving
 
 Start a **new local Codex chat in your project** after saving `.env` and trusting the plugin hooks. Send an ordinary prompt, then ask:

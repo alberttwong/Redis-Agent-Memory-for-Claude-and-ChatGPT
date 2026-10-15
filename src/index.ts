@@ -2,6 +2,7 @@
 import { AgentMemory } from "@redis-iris/agent-memory";
 import { loadConfig } from "./config.js";
 import { MemoryGateway } from "./memory.js";
+import { loadMemoryEnvironment } from "./shared-settings.js";
 import { runServer } from "./server.js";
 
 function lazyGateway(): MemoryGateway {
@@ -26,6 +27,7 @@ function lazyGateway(): MemoryGateway {
 }
 
 async function main() {
+  await loadMemoryEnvironment(process.env.MEMORY_CAPTURE_PROJECT_ROOT ?? process.cwd());
   await runServer(lazyGateway());
 }
 

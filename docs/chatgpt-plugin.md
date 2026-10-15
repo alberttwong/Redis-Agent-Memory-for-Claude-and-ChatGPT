@@ -62,7 +62,7 @@ AGENT_MEMORY_API_KEY=your-store-api-key
 
 Projects without `.memory-capture.json` are ignored by the plugin hook. Set `enabled` to `false` in that file to pause capture. Removing the plugin disables its hooks without deleting project configuration, queued writes, or Redis memories.
 
-The bundled agent-facing MCP tools receive only environment variables already present in the desktop execution session. The project `.env` is loaded by automatic capture, but is not copied into the plugin or exposed to the model.
+The capture CLI and bundled bridge resolve Redis settings from the process environment, then the project `.env`, then shared defaults outside Git. The bridge inherits the session working directory; `MEMORY_CAPTURE_PROJECT_ROOT` can explicitly select a project. Credentials are not copied into the plugin or exposed to the model. See [sharing settings across worktrees](automatic-saving-operations.md#reuse-redis-settings-across-worktrees-and-checkouts).
 
 ## Public remote profile
 
