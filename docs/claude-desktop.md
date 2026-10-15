@@ -15,12 +15,17 @@ Claude Desktop can use the local Redis Agent Memory bridge for ordered session h
 
 The Claude Desktop bridge advertises instructions to recall prior work, append substantive turns, and save checkpoints without asking for memory identifiers. Those instructions improve the default workflow but cannot guarantee that the model calls a tool on every turn.
 
+## Marketplace credentials
+
+The marketplace plugin declares Redis connection fields through plugin `userConfig` starting in plugin v0.1.2. Configure them when enabling the plugin in a supported session, then call `memory_health` to verify connectivity. A successful marketplace installation alone does not confirm a Redis connection. See [configuration troubleshooting](quickstart-claude-desktop.md#if-installation-did-not-ask-for-redis-credentials).
+
 ## Default: Add marketplace
 
 1. In Claude Desktop, open **Customize → Plugins → Add marketplace**.
 2. Enter `https://github.com/alberttwong/redis-agent-memory-mcp` and select **Sync**.
-3. Install **Redis Agent Memory** and configure the bundled server when prompted.
-4. Start a new Cowork or Claude Code session and ask Claude to check memory health.
+3. Install **Redis Agent Memory**.
+4. Start a new Cowork or Claude Code session with the plugin enabled and configure its Redis connection when the host prompts.
+5. Ask Claude to call `memory_health` to verify connectivity.
 
 See the [Claude Desktop quickstart](quickstart-claude-desktop.md) for the full walkthrough. The plugin references the versioned release bundle, so a local source build is unnecessary. Its local MCP server runs in Cowork and Claude Code. For ordinary Desktop Chat, use the extension below.
 

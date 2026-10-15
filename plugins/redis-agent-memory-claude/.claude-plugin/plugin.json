@@ -1,6 +1,6 @@
 {
   "name": "redis-agent-memory",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Recall project context and save agent handoff checkpoints with Redis Agent Memory.",
   "author": {
     "name": "Albert Wong",
@@ -8,5 +8,52 @@
   },
   "homepage": "https://github.com/alberttwong/redis-agent-memory-mcp",
   "repository": "https://github.com/alberttwong/redis-agent-memory-mcp",
-  "mcpServers": "https://github.com/alberttwong/redis-agent-memory-mcp/releases/download/v0.1.1/redis-agent-memory-0.1.1.mcpb"
+  "mcpServers": "https://github.com/alberttwong/redis-agent-memory-mcp/releases/download/v0.1.1/redis-agent-memory-0.1.1.mcpb",
+  "userConfig": {
+    "base_url": {
+      "type": "string",
+      "title": "Redis Agent Memory URL",
+      "description": "HTTPS base URL for the Redis Agent Memory service.",
+      "required": true
+    },
+    "store_id": {
+      "type": "string",
+      "title": "Store ID",
+      "description": "Redis Agent Memory store identifier.",
+      "required": true
+    },
+    "api_key": {
+      "type": "string",
+      "title": "Store API key",
+      "description": "API key for the selected Redis Agent Memory store.",
+      "sensitive": true,
+      "required": true
+    },
+    "owner_id": {
+      "type": "string",
+      "title": "Owner ID",
+      "description": "Optional stable owner shared across computers. Leave blank to derive a local owner.",
+      "required": false
+    },
+    "namespace_id": {
+      "type": "string",
+      "title": "Namespace resource ID",
+      "description": "Optional Redis namespace resource ID. This takes precedence over the legacy namespace.",
+      "required": false
+    },
+    "namespace": {
+      "type": "string",
+      "title": "Legacy namespace",
+      "description": "Project namespace used when no namespace resource ID is supplied.",
+      "default": "claude-desktop",
+      "required": false
+    },
+    "agent_id": {
+      "type": "string",
+      "title": "Agent ID",
+      "description": "Actor ID used for assistant events.",
+      "default": "shared-agent",
+      "required": false
+    }
+  }
 }
