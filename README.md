@@ -4,6 +4,8 @@ Share Redis Agent Memory between Claude Desktop, Claude Code, and Codex using Re
 
 **Using Claude Desktop?** Follow [Claude Desktop: native connector](#claude-desktop-native-connector) below. For the local bridge, see [Claude Desktop: optional local bridge](#claude-desktop-optional-local-bridge).
 
+**Using Codex Desktop?** Follow [Codex Desktop: native MCP](#codex-desktop-native-mcp) below, or the [optional bridge setup](#4-connect-codex).
+
 ## Recommended: connect to the native MCP endpoint
 
 Configure both clients to use the same Agent Memory service and store:
@@ -34,6 +36,25 @@ Add the remote connector through Claude's account settings; the generic JSON exa
 5. Ask: “Use `search_long_term_memory` with `owner_id` `desktop-test`, `namespace` `desktop-test`, and `limit` 1. Do not create or delete memories.” An empty successful result is sufficient.
 
 Remote connectors run from Anthropic's infrastructure. Our SDK test verified the Redis endpoint, not this Desktop setup end to end. See [Anthropic's remote connector guide](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp).
+
+### Codex Desktop: native MCP
+
+Codex Desktop shares MCP configuration with the CLI on the same host.
+
+1. Open **Settings → MCP servers → Add server**. Choose **Streamable HTTP**, name it `redis-agent-memory`, and enter `<MEMORY_URL>/v1/stores/<MEMORY_STORE_ID>/mcp`.
+2. Configure bearer authentication in your private `~/.codex/config.toml`. Merge this table, replacing any existing table with the same server name rather than duplicating it:
+
+```toml
+[mcp_servers.redis-agent-memory]
+url = "<MEMORY_URL>/v1/stores/<MEMORY_STORE_ID>/mcp"
+http_headers = { Authorization = "Bearer <MEMORY_KEY>" }
+```
+
+3. Replace the placeholders privately. This configuration contains a credential; keep it out of Git. Alternatively, replace `http_headers` with `bearer_token_env_var = "AGENT_MEMORY_API_KEY"` and ensure that variable is present in the Desktop app's launch environment. The project's `.env` is not automatically loaded by a native HTTP connection.
+4. Save and select **Restart** in MCP settings. Start a fresh chat and use `/mcp` to check connection status.
+5. Ask Codex to call `search_long_term_memory` with `owner_id` `desktop-test`, `namespace` `desktop-test`, and `limit` 1, without writing or deleting memories.
+
+These instructions follow the [official OpenAI MCP documentation](https://learn.chatgpt.com/docs/extend/mcp?surface=app). The endpoint was tested with an SDK client; Desktop setup has not been verified end to end.
 
 ### Verified native tools
 
