@@ -38,7 +38,7 @@ try {
   async function smokePlugin(pluginDirectory) {
     const server = join(pluginDirectory, "server", "index.js");
     const transport = new StdioClientTransport({ command: process.execPath, args: [server], stderr: "pipe" });
-    const client = new Client({ name: "chatgpt-plugin-smoke-test", version: "0.1.1" });
+    const client = new Client({ name: "chatgpt-plugin-smoke-test", version: "0.1.2" });
     try {
       await client.connect(transport);
       const result = await client.listTools();
