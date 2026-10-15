@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "redis-agent-memory",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Automatically save and recall project context with Redis Agent Memory in local ChatGPT and Codex desktop chats.",
   "author": {
     "name": "Albert Wong",

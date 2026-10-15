@@ -95,3 +95,9 @@ Uninstalling stops the plugin's hooks. It preserves memories in Redis, project c
 If you also installed project hooks separately, follow [Remove automatic saving](automatic-saving-operations.md#remove-automatic-saving) to remove them.
 
 For manual commands and source builds, see [ChatGPT plugin packaging](chatgpt-plugin.md). For retries and identity settings, see [Automatic saving operations](automatic-saving-operations.md). The installation flow follows OpenAI's [local plugin setup](https://developers.openai.com/plugins/build/plugins#install-a-local-plugin-manually) and [plugin removal](https://learn.chatgpt.com/docs/plugins#remove-a-plugin) documentation.
+
+## Automatic context for each prompt
+
+After project setup and hook activation, each submitted prompt also triggers a search for relevant memories in your owner's project scope before the LLM processes it. Matches are supplied as historical context automatically; you do not need to request a memory search each time. This requires local ChatGPT plugin v0.1.5+ or Claude plugin v0.1.6+, followed by a fresh local session. If Redis is unavailable, the chat continues and pending saves remain queued.
+
+To keep automatic saving while disabling these searches, set `promptRecall: false` in `.memory-capture.json`. See [retrieval limits, relevance threshold, and behavior](automatic-capture.md#relevant-memories-before-each-prompt).
