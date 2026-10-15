@@ -15,7 +15,7 @@ In a local Codex chat inside ChatGPT Desktop, submitted prompts and available fi
 ## Choose a quickstart
 
 - [Claude Desktop quickstart](docs/quickstart-claude-desktop.md): use **Add marketplace** (default), then the browser setup form in a local Claude Code session. For Desktop Chat, use the MCPB extension.
-- [ChatGPT Desktop quickstart](docs/quickstart-chatgpt-desktop.md): install the local plugin, enable automatic saving, and optionally import ChatGPT history.
+- [ChatGPT Desktop quickstart](docs/quickstart-chatgpt-desktop.md): add the repository marketplace, install the local plugin, and enable automatic saving.
 - [Manual quickstart](docs/technical-setup-and-operations.md): build and cli install and use the optional native or local bridge tools.
 
 Claude Desktop currently uses the plugin's browser form for Redis credentials because native marketplace configuration has an [upstream issue](https://github.com/anthropics/claude-code/issues/95683). Follow the quickstart's setup steps. [Project issue #31](https://github.com/alberttwong/redis-agent-memory-mcp/issues/31) tracks returning to native configuration after a Desktop fix is verified.

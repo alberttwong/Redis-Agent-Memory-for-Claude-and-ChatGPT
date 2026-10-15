@@ -4,21 +4,39 @@
 
 Install Redis Agent Memory to save prompts and available final responses from local Codex chats and recall project context in later chats. This setup works in **Codex → This computer** in ChatGPT Desktop. It requires Node.js 20.12 or later and a Redis Agent Memory service URL, store ID, and API key.
 
-You will use two folders:
+## 1. Install from the repository marketplace
 
-| Folder | Purpose |
-| --- | --- |
-| Plugin folder | The extracted download. Open it once to install the plugin. |
-| Your project folder | The project whose chats you want to remember. Configure memory here and use it for everyday work. |
+Register the repository as a marketplace source:
 
-## 1. Install the plugin
+```sh
+codex plugin marketplace add alberttwong/redis-agent-memory-mcp
+```
+
+Restart ChatGPT Desktop, open the **Plugins Directory**, select **Redis Agent Memory local plugins**, and install **Redis Agent Memory**. Review and trust its lifecycle hooks when prompted. The marketplace source must be this repository, not its `plugins/` subfolder.
+
+The repository includes the server and capture CLI, so users do not need to clone, run npm, or build the project. Node.js is still required to run the plugin. After installation, open your own project folder for the configuration steps below.
+
+If you previously registered this source, refresh it after the fix is available:
+
+```sh
+codex plugin marketplace upgrade redis-agent-memory-local
+```
+
+For an existing source configured with a sparse checkout, include both `.agents/plugins` and `plugins/redis-agent-memory`; the catalog alone cannot supply the runtime. A normal registration without `--sparse` includes both.
+
+### If installation says the plugin path does not exist
+
+Earlier repository catalogs pointed to `build/chatgpt-plugin/local`, a generated folder that was absent from GitHub. That caused “failed to load plugin” or “path does not exist or is not a directory” during installation.
+
+The corrected catalog points to `plugins/redis-agent-memory` and includes both runtime bundles. Refresh the marketplace with the upgrade command above, restart the app, then install or update **Redis Agent Memory** to plugin v0.1.2 or later. Verify your source includes the plugin directory if you configured a sparse checkout.
+
+### Alternative: Install a release ZIP
 
 1. Open the [latest release](https://github.com/alberttwong/redis-agent-memory-mcp/releases/latest) and download **`redis-agent-memory-chatgpt-desktop-<version>.zip`** from **Assets**.
-2. Extract the ZIP into a permanent folder. Keep all its contents, including the hidden `.agents` folder.
-3. In ChatGPT Desktop, select **Codex** and open the extracted folder using **This computer**. Restart the app with that project open.
-4. Open the **Plugins Directory**, choose **Redis Agent Memory local plugins**, and install **Redis Agent Memory**. Review and trust its lifecycle hooks when prompted.
-
-After installation, switch to your own project. You do not need to work inside the plugin folder.
+2. Extract it into a permanent folder, preserving the hidden `.agents` folder.
+3. In ChatGPT Desktop, select **Codex → This computer**, open the extracted folder, and restart the app with that project open.
+4. In the **Plugins Directory**, choose **Redis Agent Memory local plugins** and install **Redis Agent Memory**. Review and trust the lifecycle hooks.
+5. Switch to your own project folder for everyday work. Keep the extracted plugin folder available.
 
 ## 2. Connect your project to Redis
 

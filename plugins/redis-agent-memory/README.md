@@ -6,4 +6,6 @@ The hook does nothing in projects without `.memory-capture.json`. Run the `setup
 
 Because this package contains lifecycle hooks, it is for local or repository marketplaces and is not eligible for the public plugin directory.
 
+The Git marketplace points directly to this directory and includes both bundled runtime files. Installation does not require npm or a build. Maintainers should regenerate them with `npm run plugin:runtime` after source changes.
+
 From the repository root, run `npm run plugin:test` to validate both plugin profiles and smoke-test the bundled local runtime. Run `npm run plugin:build` to create the distributable local ZIP under `build/`.
