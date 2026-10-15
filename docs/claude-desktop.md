@@ -9,12 +9,12 @@ Claude Desktop can use the local Redis Agent Memory bridge for ordered session h
 | Surface | Installation | Capture behavior | Local retry queue |
 | --- | --- | --- | --- |
 | Local Codex project | `ram-capture install` | Guaranteed for supported, trusted hook events | Yes |
-| Claude Desktop Chat | `ram-capture install --claude-desktop` | Best-effort MCP tool calls selected by the model | No |
+| Claude Desktop Chat | `.mcpb` extension; CLI fallback available | Best-effort MCP tool calls selected by the model | No |
 | Claude Code | MCP bridge or native connector | Explicit or model-directed MCP tool calls | No |
 
 The Claude Desktop bridge advertises instructions to recall prior work, append substantive turns, and save checkpoints without asking for memory identifiers. Those instructions improve the default workflow but cannot guarantee that the model calls a tool on every turn.
 
-## Quick install
+## Recommended: MCPB desktop extension
 
 Install Node.js 20.12 or later, clone the repository, and run:
 
@@ -22,6 +22,27 @@ Install Node.js 20.12 or later, clone the repository, and run:
 git clone https://github.com/alberttwong/redis-agent-memory-mcp.git
 cd redis-agent-memory-mcp
 npm ci
+npm run mcpb:test
+```
+
+This creates `build/redis-agent-memory-0.1.0.mcpb`. In Claude Desktop:
+
+1. Open **Settings → Extensions**.
+2. Select **Advanced settings → Install Extension…**.
+3. Choose the generated `.mcpb` file.
+4. Enter the Redis Agent Memory URL, store ID, and API key. The manifest marks the API key as sensitive so the Desktop host uses secure storage rather than a tracked file.
+5. Optionally configure a stable owner, namespace resource ID, legacy namespace, or agent ID.
+6. Enable the extension in a conversation and ask it to call `memory_health`.
+
+The bundle contains a single JavaScript server with its runtime dependencies included. Claude Desktop supplies Node.js, so users installing a prebuilt `.mcpb` do not need this repository, npm, or a separate Node installation.
+
+Privately distributed bundles are not automatically updated. Build and install a new version when the package version changes. The generated bundle is unsigned; review its contents before installing it and use MCPB signing for production distribution.
+
+## CLI fallback
+
+The CLI installer is useful while developing the bridge or when testing a local checkout:
+
+```sh
 npm run capture:install:claude-desktop
 ```
 
