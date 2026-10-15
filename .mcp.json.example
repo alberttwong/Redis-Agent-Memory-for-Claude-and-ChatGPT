@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "redis-agent-memory": {
+      "type": "stdio",
+      "command": "zsh",
+      "args": [
+        "/absolute/path/to/redis-agent-memory-mcp/scripts/start.sh"
+      ]
+    }
+  }
+}

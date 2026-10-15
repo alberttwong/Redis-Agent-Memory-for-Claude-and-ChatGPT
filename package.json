@@ -1,0 +1,28 @@
+{
+  "name": "redis-agent-memory-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Shared Redis Agent Memory bridge for Claude Code and Codex",
+  "bin": {
+    "redis-agent-memory-mcp": "dist/src/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "start": "node dist/src/index.js",
+    "test": "npm run build && node --test dist/**/*.test.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.1",
+    "@redis-iris/agent-memory": "0.3.1",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "7.0.2"
+  }
+}

@@ -1,0 +1,7 @@
+# Shared Redis agent memory
+
+- Use the same stable session ID for one task across Codex and Claude Code.
+- Before continuing an existing task, call `resume_context` with that session ID and a short description of the current request.
+- Append important user and assistant turns with `memory_append`. Do not write secrets, credentials, raw environment files, or sensitive personal data.
+- After material progress and before a handoff, call `checkpoint_save`. Include the current goal, completed work, next steps, blockers, repository path, branch, commit, and changed files when known.
+- Treat the repository and Git state as the source of truth for code. Redis memory is context, not a replacement for the working tree.
