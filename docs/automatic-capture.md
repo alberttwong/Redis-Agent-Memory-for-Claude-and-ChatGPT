@@ -8,12 +8,14 @@ The project hooks save submitted prompts and final assistant responses to Redis 
 2. Configure the generated private `.env` with the Redis endpoint, store ID, and API key. Existing `.env`, `.memory-capture.json`, hooks, and ignore rules are preserved or merged rather than replaced.
 3. Run `npm run capture:doctor`. It reports missing local setup without contacting Redis.
 4. Check `.memory-capture.json`. Capture is enabled for this project; edit `enabled` to `false` to turn it off.
-5. For Codex, trust the project's `.codex/` configuration and review/trust the new hook definitions when the client requests it. Restart the app or session so it loads the hooks. A hook listed in the config is not proof that it has been trusted or executed.
+5. For Codex, use `/hooks` in a local session to inspect and trust the project's hook definitions. Trust is recorded against the exact definition, so changed hooks require another review. Start a new local session after installation or approval. A hook listed in the config is not proof that it has been trusted or executed.
 6. Submit an ordinary prompt, then run `npm run capture:status`. A zero pending count means no entries are awaiting delivery; also verify a record in Redis or ask the connected agent to retrieve it.
 
 Codex discovers `.codex/hooks.json`. Installer-managed hooks invoke the compiled CLI directly; the CLI derives the Git root, loads that project's `.env`, and uses that project's configuration and queue even when Codex starts from a subdirectory. The legacy shell launcher remains available for the checked-in Claude Code configuration and npm convenience commands.
 
 Client versions and policy must support and allow `SessionStart`, `UserPromptSubmit`, and `Stop` command hooks. See the [Codex hook reference](https://learn.chatgpt.com/docs/hooks) and [Claude Code hook reference](https://code.claude.com/docs/en/hooks). Hooks need network access to the configured Redis endpoint. The SDK test does not prove that a particular Desktop installation has activated hooks; test a fresh session after trusting them.
+
+Codex command hooks and plugin hooks run with local-only orchestration. They are not supported in cloud-orchestrated Work chats, including chats using local computer access. Enterprise environments that need cloud-orchestrated lifecycle callbacks should use the supported managed MCP-hook path described in the Codex hook reference.
 
 ## Identity defaults
 
