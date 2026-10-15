@@ -4,6 +4,30 @@ The capture handler runs locally with Node.js 20.12+ and is enabled by default b
 
 The owner defaults to a hash of the OS account and hostname, the namespace defaults to the project name, sessions derive from each client conversation, and memory IDs are generated automatically. Set `AGENT_MEMORY_OWNER_ID` in the private `.env` only when the same identity must be shared across computers.
 
+## Reuse Redis settings across worktrees and checkouts
+
+After configuring one project's `.env`, share its Redis settings once:
+
+```sh
+npm run capture:share-settings
+```
+
+That command is for a source checkout. With the installed desktop plugin, ask:
+
+> Use setup-redis-memory to share this project's Redis settings across worktrees and checkouts.
+
+The command copies only Redis memory settings to `~/.config/redis-agent-memory/shared.json`. It excludes other project secrets, keeps the original `.env`, and uses private file permissions. These defaults apply to configured projects under the same OS account; each project retains its own capture configuration, namespace, and queue.
+
+Both the capture CLI and optional bridge resolve values in this order:
+
+1. Non-empty process environment values.
+2. Non-empty values in the current project's `.env`.
+3. Shared settings.
+
+Blank installer templates do not hide shared settings. A new worktree can pass `doctor --plugin` with no `.env` when shared credentials are available. The doctor's `environment` section reports the files present and each credential's source, never its value. Project overrides stay local to that checkout.
+
+To replace existing different shared settings intentionally, run `npm run capture:share-settings -- --replace`. Advanced installations can select a different shared file with `AGENT_MEMORY_SHARED_SETTINGS_FILE`. Deleting the shared file removes the fallback; it does not delete Redis memories. Sharing settings does not enable capture in projects without an enabled `.memory-capture.json`.
+
 ## Check status and retry delivery
 
 Check delivery or retry pending writes at any time:

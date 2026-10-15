@@ -103,7 +103,7 @@ test("CLI previews by default and preserves write attempts for retry", async () 
   const project = await mkdtemp(join(tmpdir(), "ram-import-cli-"));
   const input = join(project, "memories.md");
   const cli = fileURLToPath(new URL("../src/capture-cli.js", import.meta.url));
-  const environment = { ...process.env };
+  const environment: NodeJS.ProcessEnv = { ...process.env, AGENT_MEMORY_SHARED_SETTINGS_FILE: join(project, "missing-shared.json") };
   delete environment.AGENT_MEMORY_API_KEY;
   delete environment.AGENT_MEMORY_BASE_URL;
   delete environment.AGENT_MEMORY_STORE_ID;

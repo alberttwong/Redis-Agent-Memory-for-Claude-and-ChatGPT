@@ -14,6 +14,7 @@ import {
   installClaudeDesktopBridge,
   uninstallClaudeDesktopBridge,
 } from "./claude-desktop-install.js";
+import { loadMemoryEnvironment, shareProjectSettings } from "./shared-settings.js";
 import { defaultOwnerId } from "./identity.js";
 
 const mode = process.argv[2] ?? "hook";
@@ -62,10 +63,20 @@ function unpack(value: unknown): any {
 }
 
 async function main() {
+  if (mode === "share-settings") {
+    output(await shareProjectSettings(projectRoot, process.env, process.argv.includes("--replace")));
+    return;
+  }
   if (mode === "configure") {
+    const configured = await configureCaptureProject(projectRoot);
+    const environment = await loadMemoryEnvironment(projectRoot);
+    const ready = Object.values(environment.credentialSources).every((source) => source !== "missing");
     output({
-      ...(await configureCaptureProject(projectRoot)),
-      nextStep: "Fill the Redis values in .env, then start a new local chat with the plugin enabled.",
+      ...configured,
+      environment,
+      nextStep: ready
+        ? "Redis settings are available. Run doctor --plugin, then start a new local chat with the plugin enabled."
+        : "Fill the missing Redis values in .env or configure shared settings, then start a new local chat with the plugin enabled.",
     });
     return;
   }
@@ -117,6 +128,7 @@ async function main() {
       "",
       "Commands:",
       "  configure  Create default-enabled capture config without project hooks",
+      "  share-settings  Save this project's Redis settings for all configured checkouts (--replace to overwrite)",
       "  install    Install project-scoped Codex hooks and local config",
       "  doctor     Check hook, config, credentials, and retry queue state",
       "  status     Print capture identity and pending queue count",
@@ -145,11 +157,7 @@ async function main() {
     return;
   }
 
-  try {
-    process.loadEnvFile(join(projectRoot, ".env"));
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-  }
+  const environment = await loadMemoryEnvironment(projectRoot);
 
   if (mode === "doctor") {
     const issues: string[] = [];
@@ -158,7 +166,7 @@ async function main() {
       if (!desktop.installed) issues.push("Claude Desktop bridge is not installed");
       else if (!desktop.managed) issues.push("Claude Desktop bridge is not managed by ram-capture");
       for (const name of ["AGENT_MEMORY_BASE_URL", "AGENT_MEMORY_STORE_ID", "AGENT_MEMORY_API_KEY"]) {
-        if (!process.env[name]?.trim()) issues.push(`Missing ${name} in the environment or .env`);
+        if (!process.env[name]?.trim()) issues.push(`Missing ${name} in the environment, project .env, or shared settings`);
       }
       output({
         ok: issues.length === 0,
@@ -182,11 +190,12 @@ async function main() {
     const hooksInstalled = pluginMode || await captureHooksInstalled(projectRoot);
     if (!hooksInstalled) issues.push("Codex capture hooks are not installed");
     for (const name of ["AGENT_MEMORY_BASE_URL", "AGENT_MEMORY_STORE_ID", "AGENT_MEMORY_API_KEY"]) {
-      if (!process.env[name]?.trim()) issues.push(`Missing ${name} in the environment or .env`);
+      if (!process.env[name]?.trim()) issues.push(`Missing ${name} in the environment, project .env, or shared settings`);
     }
     output({
       ok: issues.length === 0,
       projectRoot,
+      environment,
       enabled,
       hooksInstalled,
       hookSource: pluginMode ? "plugin" : "project",
@@ -281,7 +290,7 @@ async function main() {
     }
     if (mode === "status") {
       const resolved = scope(config, projectRoot, source, {hook_event_name: "SessionStart", session_id: "status"});
-      output({ enabled: config.enabled, ownerId: resolved.owner, namespace: resolved.namespace, pending: await pendingCount(queue) });
+      output({ environment, enabled: config.enabled, ownerId: resolved.owner, namespace: resolved.namespace, pending: await pendingCount(queue) });
       return;
     }
     if (!config.enabled) { if (mode === "hook") output({}); return; }
@@ -295,7 +304,7 @@ async function main() {
     const entry = makeEntry(config, projectRoot, source, input, [process.env.AGENT_MEMORY_API_KEY ?? ""]);
     if (entry) await enqueue(queue, entry);
   } else if (!importSummary && mode !== "flush") {
-    throw new Error("Expected configure, install, doctor, status, flush, import-claude, import-chatgpt, uninstall, help, or hook");
+    throw new Error("Expected share-settings, configure, install, doctor, status, flush, import-claude, import-chatgpt, uninstall, help, or hook");
   }
 
   // Enqueue before touching the network so missing credentials/outages preserve the prompt.

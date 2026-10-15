@@ -21,7 +21,9 @@ node <plugin-root>/server/capture-cli.js configure --project <repository-root>
 
 This creates a default-enabled `.memory-capture.json`, a private `.env` template, and safe `.gitignore` entries. It does not add project-level hooks because the installed plugin already supplies them.
 
-Ask the user to fill in these values locally; never request, display, or copy the API key into chat:
+Check `doctor --plugin` before requesting credentials. A missing project `.env` is valid when the doctor resolves credentials from shared settings.
+
+If credentials are missing, ask the user to fill in these values locally; never request, display, or copy the API key into chat:
 
 - `AGENT_MEMORY_BASE_URL`
 - `AGENT_MEMORY_STORE_ID`
@@ -36,4 +38,16 @@ Then run `doctor --project <repository-root> --plugin`. Start a new local chat a
 - Preview imports with `import-claude` or `import-chatgpt` plus `--input`; add `--write` only after the user approves the preview.
 - Disable capture by setting `enabled` to `false` in `.memory-capture.json`.
 
-The plugin's explicit MCP tools use environment variables passed to the desktop session. Automatic hook capture instead loads the current project's `.env`.
+## Share settings across worktrees and checkouts
+
+When the user wants to reuse this project's Redis connection, run:
+
+```sh
+node <plugin-root>/server/capture-cli.js share-settings --project <repository-root>
+```
+
+This copies only Redis memory settings from the project's `.env` into `~/.config/redis-agent-memory/shared.json`, with private file permissions. It does not copy unrelated project secrets. Existing different shared settings require an intentional `--replace`; do not overwrite them without the user's authorization.
+
+Process environment values take precedence, followed by non-empty project `.env` values, then shared settings. Blank template values do not shadow shared settings. Doctor reports the credential sources without their values. Run doctor against another worktree to verify fallback; do not copy the API key into chat.
+
+Both the capture CLI and bridge use this resolution. Keep `.memory-capture.json` enabled in each project that should capture turns. Shared credentials do not enable capture in unconfigured projects.
