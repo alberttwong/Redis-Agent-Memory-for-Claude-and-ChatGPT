@@ -1,1 +1,2 @@
 plugins/redis-agent-memory-claude/server/index.mjs linguist-generated=true
+plugins/redis-agent-memory/server/*.js linguist-generated=true

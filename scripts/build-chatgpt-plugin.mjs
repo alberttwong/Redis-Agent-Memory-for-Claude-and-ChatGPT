@@ -1,7 +1,6 @@
 import { cp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { build } from "esbuild";
 import { zipSync } from "fflate";
 import { validateChatGptPluginSources } from "./validate-chatgpt-plugin.mjs";
 
@@ -34,33 +33,6 @@ if (remoteUrl) {
       },
     },
   }, null, 2)}\n`);
-} else {
-  const serverDirectory = join(staging, "server");
-  await mkdir(serverDirectory, { recursive: true });
-  await Promise.all([
-    build({
-      entryPoints: [join(root, "src", "index.ts")],
-      outfile: join(serverDirectory, "index.js"),
-      bundle: true,
-      platform: "node",
-      format: "esm",
-      target: "node20",
-      sourcemap: false,
-      legalComments: "none",
-      logLevel: "info",
-    }),
-    build({
-      entryPoints: [join(root, "src", "capture-cli.ts")],
-      outfile: join(serverDirectory, "capture-cli.js"),
-      bundle: true,
-      platform: "node",
-      format: "esm",
-      target: "node20",
-      sourcemap: false,
-      legalComments: "none",
-      logLevel: "info",
-    }),
-  ]);
 }
 
 async function archiveFiles(directory) {

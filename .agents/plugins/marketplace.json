@@ -8,7 +8,7 @@
       "name": "redis-agent-memory",
       "source": {
         "source": "local",
-        "path": "./build/chatgpt-plugin/local"
+        "path": "./plugins/redis-agent-memory"
       },
       "policy": {
         "installation": "AVAILABLE",

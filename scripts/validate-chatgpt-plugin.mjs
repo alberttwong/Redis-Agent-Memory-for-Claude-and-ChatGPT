@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as z from "zod/v4";
@@ -32,8 +32,8 @@ export async function validateChatGptPluginSources() {
   const remoteRoot = join(root, "plugins", "redis-agent-memory-remote");
   const local = pluginSchema.parse(JSON.parse(await readFile(join(localRoot, "plugin.json"), "utf8")));
   const remote = pluginSchema.parse(JSON.parse(await readFile(join(remoteRoot, "plugin.json"), "utf8")));
-  if (local.version !== packageDocument.version || remote.version !== packageDocument.version) {
-    throw new Error("Plugin versions must match package.json");
+  if (remote.version !== packageDocument.version) {
+    throw new Error("Remote plugin version must match package.json");
   }
   const localExtension = local.extensions["com.openai"];
   if (
@@ -73,8 +73,11 @@ export async function validateChatGptPluginSources() {
     throw new Error("Public remote profile must not declare hooks or local execution");
   }
   const marketplace = JSON.parse(await readFile(join(root, ".agents", "plugins", "marketplace.json"), "utf8"));
-  if (marketplace.plugins?.[0]?.source?.path !== "./build/chatgpt-plugin/local") {
-    throw new Error("Repository marketplace must point to the built local plugin");
+  if (marketplace.plugins?.[0]?.source?.path !== "./plugins/redis-agent-memory") {
+    throw new Error("Repository marketplace must point to the tracked, self-contained plugin");
+  }
+  for (const name of ["index.js", "capture-cli.js"]) {
+    await access(join(localRoot, "server", name));
   }
   return { local, remote };
 }

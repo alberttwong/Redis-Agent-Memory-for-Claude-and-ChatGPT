@@ -42,12 +42,15 @@ For development, clone this repository, install Node.js 20.12 or later, and run 
 
 ```sh
 npm ci
+npm run plugin:runtime
 npm run plugin:test
 ```
 
 The build also produces `build/redis-agent-memory-chatgpt-desktop-<version>.zip`, which can be extracted and installed without a source checkout, and `build/redis-agent-memory-chatgpt-local-<version>.zip`, which contains only the plugin for existing marketplaces.
 
-The repository marketplace points to `build/chatgpt-plugin/local`. Restart ChatGPT Desktop, open the Plugins Directory, choose **Redis Agent Memory local plugins**, and install **Redis Agent Memory**. Review and trust the plugin hooks when prompted.
+The repository marketplace points to the tracked `plugins/redis-agent-memory` directory, which includes the server and capture CLI bundles. Installing from Git does not run a build step. To refresh those generated runtime files after changing their source, run `npm run plugin:runtime` and commit the resulting files; `npm run plugin:test` rejects stale bundles.
+
+Register the repository with `codex plugin marketplace add alberttwong/redis-agent-memory-mcp`. Restart ChatGPT Desktop, open the Plugins Directory, choose **Redis Agent Memory local plugins**, and install **Redis Agent Memory**. Review and trust the plugin hooks when prompted.
 
 In a local chat, ask to run the `setup-redis-memory` skill for the current repository. The skill creates a default-enabled `.memory-capture.json`, a private `.env` template, and `.gitignore` entries without adding duplicate project hooks. Fill in the Redis values locally, then start a new chat:
 

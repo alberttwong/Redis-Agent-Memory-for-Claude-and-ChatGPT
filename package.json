@@ -37,13 +37,14 @@
     "plugin:validate": "node scripts/validate-chatgpt-plugin.mjs",
     "plugin:build": "node scripts/build-chatgpt-plugin.mjs",
     "plugin:build:remote": "node scripts/build-chatgpt-plugin.mjs --remote-url",
-    "plugin:test": "npm run plugin:validate && npm run plugin:build && node scripts/build-chatgpt-plugin.mjs --remote-url https://memory.example.test/mcp --output build/redis-agent-memory-chatgpt-remote-test.zip && node scripts/smoke-chatgpt-plugin.mjs",
+    "plugin:test": "node scripts/build-chatgpt-runtime.mjs --check && npm run plugin:validate && npm run plugin:build && node scripts/build-chatgpt-plugin.mjs --remote-url https://memory.example.test/mcp --output build/redis-agent-memory-chatgpt-remote-test.zip && node scripts/smoke-chatgpt-plugin.mjs",
     "prepack": "npm run build",
     "test": "npm run build && node --test dist/**/*.test.js",
     "test:e2e:handoff": "npm run mcpb:build && npm run plugin:build && node --test integration/claude-chatgpt.test.mjs",
     "claude-plugin:validate": "node scripts/validate-claude-marketplace.mjs",
     "claude-plugin:test": "npm run claude-plugin:validate && node scripts/build-claude-plugin.mjs --check && npm run build && node --test dist/test/memory-setup.test.js && node scripts/smoke-claude-plugin.mjs",
-    "claude-plugin:build": "node scripts/build-claude-plugin.mjs"
+    "claude-plugin:build": "node scripts/build-claude-plugin.mjs",
+    "plugin:runtime": "node scripts/build-chatgpt-runtime.mjs"
   },
   "engines": {
     "node": ">=20.12"
