@@ -1,0 +1,7 @@
+{
+  "hooks": {
+    "SessionStart": [{"hooks": [{"type": "command", "command": "zsh \"$(git rev-parse --show-toplevel)/scripts/capture.sh\" hook codex", "timeout": 30}]}],
+    "UserPromptSubmit": [{"hooks": [{"type": "command", "command": "zsh \"$(git rev-parse --show-toplevel)/scripts/capture.sh\" hook codex", "timeout": 30}]}],
+    "Stop": [{"hooks": [{"type": "command", "command": "zsh \"$(git rev-parse --show-toplevel)/scripts/capture.sh\" hook codex", "timeout": 30}]}]
+  }
+}

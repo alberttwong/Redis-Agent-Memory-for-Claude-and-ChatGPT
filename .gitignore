@@ -7,5 +7,6 @@ dist/
 !.env.example
 outputs/
 work/
+.memory-capture/
 .DS_Store
 *.log

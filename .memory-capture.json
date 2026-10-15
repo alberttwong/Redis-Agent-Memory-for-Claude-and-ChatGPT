@@ -1,0 +1,5 @@
+{
+  "namespace": "redis-agent-memory-mcp",
+  "enabled": true,
+  "recallLimit": 6
+}
