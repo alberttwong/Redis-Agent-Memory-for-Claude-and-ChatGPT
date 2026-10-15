@@ -4,9 +4,9 @@ Share Redis Agent Memory between Claude Desktop, Claude Code, and Codex using Re
 
 **Want automatic saving?** The [automatic capture guide](docs/automatic-capture.md) installs project hooks for Codex and Claude Code. Prompts, available final responses, and recent-context recall use generated identifiers and per-user owner defaults, with a local retry queue. Ordinary Claude Desktop chat does not use Claude Code hooks.
 
-**Using Claude Desktop?** Follow [Claude Desktop: native connector](#claude-desktop-native-connector) below. For the local bridge, see [Claude Desktop: optional local bridge](#claude-desktop-optional-local-bridge).
+**Using Claude Desktop?** Follow [Claude Desktop: native connector](#claude-desktop-native-connector) below. For the local bridge, see the [separate bridge setup guide](docs/bridge-setup.md#claude-desktop-optional-local-bridge).
 
-**Using Codex Desktop?** Follow [Codex Desktop: native MCP](#codex-desktop-native-mcp) below, or the [optional bridge setup](#4-connect-codex).
+**Using Codex Desktop?** Start with [automatic prompt capture](#codex-desktop-automatic-prompt-capture). The [native MCP connection](#codex-desktop-native-mcp) adds tools for the agent to call; it does not save prompts by itself.
 
 ## Recommended: connect to the native MCP endpoint
 
@@ -43,6 +43,8 @@ Remote connectors run from Anthropic's infrastructure. Our SDK test verified the
 
 Codex Desktop shares MCP configuration with the CLI on the same host.
 
+This section connects the agent's memory tools. For automatic saving without asking the agent to call a tool, complete the capture setup below as well.
+
 Use the configuration-file route below; it does not depend on a Desktop settings menu being available.
 
 1. Open your private `~/.codex/config.toml` in a text editor (create the file if needed).
@@ -61,6 +63,45 @@ http_headers = { Authorization = "Bearer <MEMORY_KEY>" }
 For an environment-based configuration, the CLI can also register the server with `codex mcp add redis-agent-memory --url "<MEMORY_URL>/v1/stores/<MEMORY_STORE_ID>/mcp" --bearer-token-env-var AGENT_MEMORY_API_KEY`. The Desktop process must still receive that environment variable.
 
 See the [official OpenAI MCP configuration documentation](https://learn.chatgpt.com/docs/extend/mcp?surface=app#configure-with-configtoml). The endpoint was tested with an SDK client; Desktop setup has not been verified end to end.
+
+### Codex Desktop: automatic prompt capture
+
+The capture handler runs locally on macOS with Node.js 20.12+ and zsh. It connects to Redis's native MCP endpoint directly; registering the optional stdio bridge is not required.
+
+1. Clone this repository, or pull the merged capture implementation into a clean existing checkout:
+
+```sh
+git clone https://github.com/alberttwong/redis-agent-memory-mcp.git
+cd redis-agent-memory-mcp
+npm ci
+npm run build
+cp -n .env.example .env
+```
+
+If `.env` already exists, keep it and edit its values instead of copying over it. Set these three values privately:
+
+```dotenv
+AGENT_MEMORY_BASE_URL=https://your-agent-memory-endpoint
+AGENT_MEMORY_STORE_ID=your-store-id
+AGENT_MEMORY_API_KEY=your-store-api-key
+```
+
+2. Review `.memory-capture.json`. This repository enables capture with namespace `redis-agent-memory-mcp`. There is no required owner or session to enter: the owner defaults to a hash of the OS account and hostname, sessions derive from each client conversation, and memory IDs are generated automatically. For the same identity across computers, set `AGENT_MEMORY_OWNER_ID` in your private `.env` to a stable personal identifier.
+3. Open **this repository folder** as the project in Codex Desktop. The checked-in `.codex/hooks.json` registers `SessionStart`, `UserPromptSubmit`, and `Stop`. Trust the project configuration and review/trust the exact hooks when Codex requests it. Fully quit and reopen the app and start a fresh local chat. Merely registering the native MCP server does not activate these hooks.
+4. Submit an ordinary prompt such as “My project needs checkout retry tests.” Once hooks are active, the prompt is queued locally and sent to Redis, and the final assistant response is saved when available. Startup hooks retrieve recent memories for the same owner and namespace.
+5. Check delivery from a terminal in the repository:
+
+```sh
+npm run capture:status
+# Retry delivery if pending is greater than zero:
+npm run capture:flush
+```
+
+The status command reports the resolved owner, namespace, and pending queue count. Use those values to inspect Redis records with the `auto-capture` topic, or ask the agent: “Retrieve my recent project memories using the scope supplied by the capture hook.” A zero pending count only describes the queue; verify a saved record to confirm that the client actually invoked a hook.
+
+Capture is project-scoped. Opening another project does not install hooks there. To record work in your own application repository, follow [Use another project](docs/automatic-capture.md#use-another-project), which covers merging hooks, using the installed handler's absolute path, and configuring a separate project namespace. See the [full capture guide](docs/automatic-capture.md) for retry behavior, identity overrides, and supported events.
+
+The handler has been tested live for prompt delivery, final-response capture, retry, and cross-client recall using hook payloads. Automatic lifecycle execution still requires the installed Codex version to support the hooks and the user to trust them. Records use long-term-memory type `message`, not Redis's ordered session-memory API.
 
 ### Verified native tools
 
@@ -189,105 +230,7 @@ The MCP bridge itself records content agents send through its tools. The optiona
 
 ## Optional bridge setup
 
-The following steps install the local bridge. Skip them when using the native endpoint directly.
-
-### 1. Configure Redis Agent Memory
-
-Clone the repository (requires access while the repository is private):
-
-```sh
-git clone https://github.com/alberttwong/redis-agent-memory-mcp.git
-cd redis-agent-memory-mcp
-```
-
-Create an Agent Memory service in Redis Cloud and copy `.env.example` to `.env`:
-
-```sh
-cp .env.example .env
-```
-
-Fill in:
-
-```dotenv
-AGENT_MEMORY_BASE_URL=https://your-agent-memory-endpoint
-AGENT_MEMORY_STORE_ID=your-store-id
-AGENT_MEMORY_API_KEY=your-store-api-key
-AGENT_MEMORY_OWNER_ID=albert
-AGENT_MEMORY_NAMESPACE_ID=your-namespace-resource-id
-AGENT_MEMORY_AGENT_ID=shared-agent
-```
-
-`AGENT_MEMORY_NAMESPACE_ID` is preferred. For an older store without namespace resources, set `AGENT_MEMORY_NAMESPACE=project-memory` instead. Never commit `.env`.
-
-### 2. Build and verify
-
-```sh
-npm install
-npm test
-```
-
-The launch script loads `.env`, finds Node through NVM when necessary, builds on first run, and starts the stdio MCP server:
-
-```sh
-./scripts/start.sh
-```
-
-### 3. Connect Claude Code
-
-Copy `.mcp.json.example` to `.mcp.json` in the project Claude will work in. Update the absolute path if this bridge moves:
-
-```sh
-cp .mcp.json.example .mcp.json
-```
-
-Copy the guidance in `integration/CLAUDE.md.snippet` into that project's `CLAUDE.md`. Start a fresh Claude Code session after changing MCP configuration.
-
-### Claude Desktop: optional local bridge
-
-After completing bridge setup steps 1–2, configure Claude Desktop to launch it on macOS:
-
-1. Open **Claude → Settings → Developer → Edit Config**. The file is `~/Library/Application Support/Claude/claude_desktop_config.json`.
-2. Merge this entry into the existing `mcpServers` object, preserving other servers:
-
-```json
-{
-  "mcpServers": {
-    "redis-agent-memory-bridge": {
-      "command": "/bin/zsh",
-      "args": ["/absolute/path/to/redis-agent-memory-mcp/scripts/start.sh"]
-    }
-  }
-}
-```
-
-3. Replace the path with the actual clone location. The launcher reads that clone's `.env`; do not put the key in the JSON.
-4. Fully quit and reopen Claude Desktop. Enable the bridge in the conversation's connector menu and ask it to call `memory_health`.
-
-Claude Desktop does not load the project's `.mcp.json` or `CLAUDE.md` as Claude Code does. Provide the save/resume guidance from `integration/CLAUDE.md.snippet` in your Desktop conversation or project instructions. The supplied launcher uses zsh and is intended for macOS; this is not a Windows launcher.
-
-For connection failures, inspect `~/Library/Logs/Claude/`. See the [official local MCP setup guide](https://modelcontextprotocol.io/docs/develop/connect-local-servers).
-
-### 4. Connect Codex
-
-Register the same stdio server:
-
-```sh
-codex mcp add redis-agent-memory -- zsh /absolute/path/to/redis-agent-memory-mcp/scripts/start.sh
-codex mcp list
-```
-
-Copy `integration/AGENTS.md.snippet` into the target project's `AGENTS.md`. Start a fresh Codex session so it discovers the new tools.
-
-## Suggested handoff flow
-
-Use a stable session ID such as `project-feature-123` in both agents.
-
-1. Claude calls `memory_append` for important turns while working.
-2. Claude calls `checkpoint_save` before the switch.
-3. Codex calls `resume_context` using the same session ID.
-4. Codex verifies the repository and Git state, continues the work, appends important turns, and updates the same checkpoint.
-
-Long-term extraction is asynchronous. `resume_context` does not rely only on extraction: it fetches the deterministic checkpoint directly, then adds current session history and semantic recall.
+For structured checkpoints and ordered session history, see the separate [optional bridge setup guide](docs/bridge-setup.md). It includes Claude Code, Claude Desktop, Codex, and the bridge handoff workflow.
 
 ## Security notes
 
