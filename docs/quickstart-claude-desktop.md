@@ -11,11 +11,12 @@ Start in Claude Desktop and add this repository as a plugin marketplace:
 1. In Claude Desktop, open **Customize → Plugins → Add marketplace**.
 2. Enter `https://github.com/alberttwong/redis-agent-memory-mcp` and select **Sync**.
 3. Install **Redis Agent Memory** from the marketplace.
-4. Start a new Cowork or Claude Code session with **Redis Agent Memory** enabled. Installation alone does not confirm a Redis connection.
-5. When the host presents the plugin configuration, enter your Redis URL, store ID, and API key there. The API key field is masked. Keep credentials out of chat.
-6. Ask Claude to call `memory_health`. Continue only after the connection succeeds.
+4. Start a new local **Claude Code → This computer** session with **Redis Agent Memory** enabled. The plugin requires Node.js 20.12 or later on that computer.
+5. Run `/redis-agent-memory:setup-redis-memory`, or ask: “Use Redis Agent Memory's setup tool.”
+6. Open the local browser link returned by `memory_setup`. Enter your Redis URL, store ID, and API key in the form, then select **Save connection**. Keep credentials out of chat.
+7. Return to Claude and ask it to call `memory_health`. A successful response confirms the live connection.
 
-The marketplace plugin references the versioned MCPB release bundle and includes a save/resume workflow skill. It does not require building this repository. The host must support MCPB references in plugin manifests and allow downloads from GitHub Releases.
+The plugin bundles its server and runtime dependencies, so installation does not require npm or a source build. The setup form runs on the same computer as the local server. A cloud or isolated Cowork VM may not expose its loopback address to your browser; use a local Claude Code session for this setup flow.
 
 For Claude Code, you can also install with:
 
@@ -29,11 +30,13 @@ If **Add marketplace** reports “no manifest found at .claude-plugin/marketplac
 
 ## If installation did not ask for Redis credentials
 
-Marketplace plugin version **0.1.1** did not declare its configuration fields at the plugin level. Version **0.1.2** adds them, including a required, sensitive API key field. The server bundle remains pinned to v0.1.1 because this is a plugin configuration fix.
+The connector's **Environment variables** panel is read-only. Installing the marketplace plugin does not mean the Redis connection is configured. Plugin v0.1.3 supplies its own browser setup form because Desktop hosts may not expose plugin `userConfig` fields.
 
-Refresh the marketplace and update **Redis Agent Memory** to plugin v0.1.2 or later. Start a fresh supported session with the plugin enabled. In Claude Code, plugin options are requested when enabling the plugin; non-sensitive options also appear in `/config`. Installation or tool discovery alone does not verify that Redis credentials are configured.
+Refresh the marketplace, update **Redis Agent Memory** to v0.1.3 or later, enable it, and start a new local session. Run `/redis-agent-memory:setup-redis-memory`. If `memory_setup` is absent, check that the updated plugin is enabled in that session before entering any credentials.
 
-If your Desktop host still provides no configuration dialog, use the MCPB extension for ordinary Desktop Chat, or a Claude Code version that supports plugin `userConfig`. Do not paste the API key into a conversation as a workaround. See the [Claude plugin configuration reference](https://code.claude.com/docs/en/plugins-reference#user-configuration).
+Settings are saved in `connection.json` under `CLAUDE_PLUGIN_DATA` when the host supplies it, otherwise under `~/.config/redis-agent-memory/`. The API key is stored in that local file, with owner-only permissions on systems that support Unix file modes. It is not stored in the plugin package or returned by a tool. Run setup again to replace connection settings. Setup links expire after ten minutes and close after saving.
+
+The form saves settings locally; `memory_health` separately verifies Redis connectivity. Removing the plugin may delete its host-managed data directory. The fallback settings directory is preserved until you remove it yourself.
 
 ## Alternative: MCPB extension for Desktop Chat
 
