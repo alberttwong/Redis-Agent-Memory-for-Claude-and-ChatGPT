@@ -9,6 +9,6 @@ Use the connected Redis memory tools. If they report that Redis is not configure
 
 Record important conversation events with `memory_append` when ordered history is useful. Save a `checkpoint_save` after material progress and before a handoff, including the goal, decisions, completed work, blockers, validation, and next steps. Include relevant file and branch information when working on code.
 
-Saving is model-directed. Do not claim that every prompt or response is captured automatically.
+The plugin includes automatic prompt and available final-response capture for configured local Claude Code projects. It requires an enabled `.memory-capture.json` and active plugin hooks. Use `setup-redis-memory` to configure and verify it. MCP tool calls remain model-directed, and ordinary Desktop Chat has no passive capture. Do not claim capture is active without verifying it.
 
 If the tools are unavailable, explain that the bundled local server needs a supported Cowork or Claude Code session and configured Redis credentials. For the browser setup form, use a local Claude Code session on This computer. For ordinary Claude Desktop Chat, direct the user to the project's MCPB extension installation guide at https://github.com/alberttwong/redis-agent-memory-mcp/blob/main/docs/quickstart-claude-desktop.md. Do not ask the user to paste an API key into chat.

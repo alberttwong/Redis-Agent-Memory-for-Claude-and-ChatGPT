@@ -2,7 +2,7 @@
 
 [Back to README](../README.md)
 
-Claude Desktop can use the local Redis Agent Memory bridge for ordered session history, recall, and checkpoints. The default installation route is **Customize → Plugins → Add marketplace** for Cowork and Claude Code. For ordinary Desktop Chat, use the MCPB extension. Saving remains **best-effort and model-directed**: ordinary Desktop Chat does not expose lifecycle hooks that let this project passively observe every prompt and response.
+Claude Desktop can use the local Redis Agent Memory bridge for ordered session history, recall, and checkpoints. The default installation route is **Customize → Plugins → Add marketplace** for Cowork and Claude Code. For ordinary Desktop Chat, use the MCPB extension. Configured local Claude Code projects support automatic saving through plugin hooks. Saving in ordinary Desktop Chat remains **best-effort and model-directed**: ordinary Desktop Chat does not expose lifecycle hooks that let this project passively observe every prompt and response.
 
 ## Support matrix
 
@@ -11,15 +11,15 @@ Claude Desktop can use the local Redis Agent Memory bridge for ordered session h
 | Local Codex project | `ram-capture install` | Guaranteed for supported, trusted hook events | Yes |
 | Claude Desktop Chat | `.mcpb` extension; CLI fallback available | Best-effort MCP tool calls selected by the model | No |
 | Claude Cowork | Marketplace plugin; browser setup requires access to the server loopback address | Best-effort MCP tool calls selected by the model | No |
-| Claude Code | Marketplace plugin, MCP bridge, or native connector | Explicit or model-directed MCP tool calls | No |
+| Local Claude Code | Marketplace plugin v0.1.5+ and project setup | Automatic supported prompt/final-response hooks | Yes |
 
 The Claude Desktop bridge advertises instructions to recall prior work, append substantive turns, and save checkpoints without asking for memory identifiers. Those instructions improve the default workflow but cannot guarantee that the model calls a tool on every turn.
 
 ## Default: Add marketplace
 
-Follow the [Claude Desktop quickstart](quickstart-claude-desktop.md) to add the repository and install **Redis Agent Memory**. Plugin v0.1.3 bundles its local server directly and provides a browser credential form.
+Follow the [Claude Desktop quickstart](quickstart-claude-desktop.md) to add the repository and install **Redis Agent Memory**. The plugin bundles its local server and provides a browser credential form. Version 0.1.5 adds automatic capture hooks and a standalone capture CLI.
 
-In a new local Claude Code session on **This computer**, run `/redis-agent-memory:setup-redis-memory`. The `memory_setup` tool returns a loopback browser link. Enter the Redis URL, store ID, and API key in that form and save, then call `memory_health` to verify the connection. The server uses saved settings immediately without a restart.
+In a new local Claude Code session on **This computer**, run `/redis-agent-memory:setup-redis-memory`. The `memory_setup` tool returns a loopback browser link. Enter the Redis URL, store ID, and API key in that form and save, then call `memory_health` to verify the connection. The server uses saved settings immediately without a restart. Let the skill configure project capture, then start a fresh session and verify the plugin hooks and a saved test prompt as described in the quickstart.
 
 The Desktop connector details panel is read-only. Plugin `userConfig` declarations alone do not provide a verified Desktop setup dialog. See [configuration troubleshooting and storage details](quickstart-claude-desktop.md#if-installation-did-not-ask-for-redis-credentials). The browser setup flow requires the MCP server and browser to run on the same computer; it is not verified for isolated Cowork VMs.
 

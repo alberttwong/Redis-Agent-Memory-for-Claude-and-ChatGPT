@@ -2,7 +2,7 @@
 
 [Back to README](../README.md)
 
-Use **Add marketplace** as the default installation option in Claude Desktop. The Redis Agent Memory plugin helps Claude recall project context, record important progress, and save handoff checkpoints. Saving is model-directed. The plugin's local memory server runs in Cowork and Claude Code; for ordinary Desktop Chat, use the [MCPB extension option](#alternative-mcpb-extension-for-desktop-chat).
+Use **Add marketplace** as the default installation option in Claude Desktop. The Redis Agent Memory plugin helps Claude recall project context, record important progress, and save handoff checkpoints. Configured local Claude Code projects automatically save submitted prompts and available final responses. Ordinary Desktop Chat uses model-directed saving. The plugin's local memory server runs in Cowork and Claude Code; for ordinary Desktop Chat, use the [MCPB extension option](#alternative-mcpb-extension-for-desktop-chat).
 
 ## 1. Install through Add marketplace (default)
 
@@ -15,6 +15,10 @@ Start in Claude Desktop and add this repository as a plugin marketplace:
 5. Run `/redis-agent-memory:setup-redis-memory`, or ask: “Use Redis Agent Memory's setup tool.”
 6. Open the local browser link returned by `memory_setup`. Enter your Redis URL, store ID, and API key in the form, then select **Save connection**. Keep credentials out of chat.
 7. Return to Claude and ask it to call `memory_health`. A successful response confirms the live connection.
+8. Let the setup skill configure automatic saving for your current project and run its plugin-aware doctor. It creates a missing `.memory-capture.json` with capture enabled, preserves existing settings, and reuses the browser connection. No `.env` edits are required.
+9. Start a fresh local Claude Code session in that project. Check `/hooks` for the plugin's `SessionStart`, `UserPromptSubmit`, and `Stop` hooks and allow them as required. Send an ordinary test prompt, then ask Claude to retrieve it from Redis to confirm capture and delivery.
+
+Automatic saving requires Claude plugin **v0.1.5 or later**. Refresh the marketplace and update an existing installation before running setup again. A successful doctor checks configuration; retrieving the test prompt verifies delivery. Hook events do not capture intermediate messages, tool output, or hidden reasoning. Turn capture off with `enabled: false` in `.memory-capture.json`; queued entries remain local until capture is enabled and retried. See [automatic capture](automatic-capture.md#claude-code-marketplace-default).
 
 The plugin bundles its server and runtime dependencies, so installation does not require npm or a source build. The setup form runs on the same computer as the local server. A cloud or isolated Cowork VM may not expose its loopback address to your browser; use a local Claude Code session for this setup flow.
 
