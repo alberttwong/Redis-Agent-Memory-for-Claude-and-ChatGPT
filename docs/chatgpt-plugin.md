@@ -8,7 +8,7 @@ The repository ships two OpenAI plugin profiles because automatic saving and pub
 
 The local profile bundles the stdio MCP server, project setup skill, and lifecycle hooks. It supports automatic saving and retry in configured projects running as local ChatGPT/Codex desktop chats.
 
-For installation, download `redis-agent-memory-chatgpt-local-<version>.zip` from the [latest release](https://github.com/alberttwong/redis-agent-memory-mcp/releases/latest) and follow the [ChatGPT Desktop quickstart](quickstart-chatgpt-desktop.md). The ZIP includes the server and capture CLI with their JavaScript dependencies bundled. Node.js 20.12 or later is required at runtime; npm and compilation are not required for release installation.
+For installation, download `redis-agent-memory-chatgpt-desktop-<version>.zip` from the [latest release](https://github.com/alberttwong/redis-agent-memory-mcp/releases/latest) and follow the [ChatGPT Desktop quickstart](quickstart-chatgpt-desktop.md). The desktop ZIP includes a local marketplace at `.agents/plugins/marketplace.json` and the bundled plugin under `plugins/redis-agent-memory/`. The plugin contains the server and capture CLI with their JavaScript dependencies bundled. Node.js 20.12 or later is required at runtime; npm and compilation are not required for release installation.
 
 ### Build from source
 
@@ -18,6 +18,8 @@ For development, clone this repository, install Node.js 20.12 or later, and run 
 npm ci
 npm run plugin:test
 ```
+
+The build also produces `build/redis-agent-memory-chatgpt-desktop-<version>.zip`, which can be extracted and installed without a source checkout, and `build/redis-agent-memory-chatgpt-local-<version>.zip`, which contains only the plugin for existing marketplaces.
 
 The repository marketplace points to `build/chatgpt-plugin/local`. Restart ChatGPT Desktop, open the Plugins Directory, choose **Redis Agent Memory local plugins**, and install **Redis Agent Memory**. Review and trust the plugin hooks when prompted.
 
