@@ -15,7 +15,7 @@ Codex discovers `.codex/hooks.json`. Installer-managed hooks invoke the compiled
 
 Client versions and policy must support and allow `SessionStart`, `UserPromptSubmit`, and `Stop` command hooks. See the [Codex hook reference](https://learn.chatgpt.com/docs/hooks) and [Claude Code hook reference](https://code.claude.com/docs/en/hooks). Hooks need network access to the configured Redis endpoint. The SDK test does not prove that a particular Desktop installation has activated hooks; test a fresh session after trusting them.
 
-Codex command hooks and plugin hooks run with local-only orchestration. They are not supported in cloud-orchestrated Work chats, including chats using local computer access. Enterprise environments that need cloud-orchestrated lifecycle callbacks should use the supported managed MCP-hook path described in the Codex hook reference.
+Codex command hooks run with local-only orchestration. They are not supported in cloud-orchestrated Work chats, including chats using local computer access. Enterprise environments that need cloud-orchestrated lifecycle callbacks should use the supported managed MCP-hook path described in the Codex hook reference.
 
 ## Identity defaults
 
