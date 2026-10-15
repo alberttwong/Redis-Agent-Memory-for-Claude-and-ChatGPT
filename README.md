@@ -81,6 +81,58 @@ Use `memory_search` to recall earlier architectural decisions, project constrain
 
 Have Claude Code investigate a failing test, record attempted fixes and findings, and save a checkpoint. Codex can retrieve that context and implement the next proposed step. Both agents need access to the relevant repository and files; memory records describe the work but do not transfer files or running processes.
 
+### Continue a Claude Desktop task in ChatGPT Desktop
+
+Claude records the decision that checkout retries should allow seven attempts, then saves a checkpoint with the next step: implement that limit. ChatGPT retrieves the original event and checkpoint from the same Redis store and resumes with the saved decision and next step.
+
+The [end-to-end handoff test](integration/claude-chatgpt.test.mjs) verifies this scenario using the servers extracted from the built Claude MCPB and ChatGPT plugin packages. Both servers share the store, a unique test owner, the configured namespace, and a unique task session ID. The test closes Claude's server before starting ChatGPT's server, so the handoff depends on persisted memory.
+
+```mermaid
+sequenceDiagram
+    participant Test as E2E test runner
+    participant Claude as Claude MCPB server
+    participant Redis as Redis Agent Memory
+    participant ChatGPT as ChatGPT plugin server
+
+    Note over Test,ChatGPT: Build and extract both packages; use isolated test owner and session
+    Test->>Claude: Start bundled server and call memory_health
+    Claude->>Redis: Check service health
+    Redis-->>Claude: Healthy
+    Test->>Claude: memory_append(sessionId, seven-attempt decision)
+    Claude->>Redis: Append session event
+    Redis-->>Claude: Event saved
+    Test->>Claude: checkpoint_save(sessionId, summary, nextSteps)
+    Claude->>Redis: Create canonical long-term checkpoint
+    Redis-->>Claude: Checkpoint created
+    Test->>Claude: Close server
+    Note over Claude,ChatGPT: Separate processes; no shared in-process state
+    Test->>ChatGPT: Start bundled server and call memory_health
+    ChatGPT->>Redis: Check service health
+    Redis-->>ChatGPT: Healthy
+    Test->>ChatGPT: memory_get_session(sessionId, includeSummarisedEvents=true)
+    ChatGPT->>Redis: Retrieve session history
+    Redis-->>ChatGPT: Original decision event
+    ChatGPT-->>Test: Verify exact event, session, and owner
+    Test->>ChatGPT: memory_search(summary, handoff and checkpoint topics)
+    ChatGPT->>Redis: Search long-term memories with owner and namespace filters
+    Redis-->>ChatGPT: Matching checkpoint
+    ChatGPT-->>Test: Verify checkpoint ID, owner, and summary
+    Note over Test,Redis: Retry visibility assertions for up to 60 seconds each
+    Test->>ChatGPT: resume_context(sessionId, summary query)
+    par Retrieve checkpoint
+        ChatGPT->>Redis: Fetch canonical checkpoint by ID
+    and Retrieve session
+        ChatGPT->>Redis: Fetch session history
+    and Recall relevant memories
+        ChatGPT->>Redis: Search long-term memories
+    end
+    Redis-->>ChatGPT: Checkpoint, session, and recalled memories
+    ChatGPT-->>Test: Verify summary, next step, original event, and recalled checkpoint
+    Test->>Redis: Delete test session and checkpoint through SDK cleanup
+```
+
+The test drives MCP calls directly; it verifies persistence and retrieval without opening either Desktop app or asking a model to implement the retry limit. See [how to run the handoff test](#test-the-claude-to-chatgpt-handoff) for credentials, cleanup, and coverage limits.
+
 ### Keep project context separate
 
 Configure a separate namespace for each project and use a distinct session ID for each task. Semantic recall includes the owner filter and, when configured, the namespace filter. This keeps unrelated project memories out of ordinary searches; these filters organize retrieval and do not replace service authentication or authorization.
