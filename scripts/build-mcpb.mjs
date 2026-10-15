@@ -1,15 +1,16 @@
-import { spawnSync } from "node:child_process";
 import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
+import { zipSync } from "fflate";
+import { loadAndValidateManifest } from "./validate-mcpb.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const buildRoot = join(root, "build");
 const staging = join(buildRoot, "mcpb");
 const serverDirectory = join(staging, "server");
 const packageDocument = JSON.parse(await readFile(join(root, "package.json"), "utf8"));
-const manifest = JSON.parse(await readFile(join(root, "mcpb", "manifest.json"), "utf8"));
+const manifest = await loadAndValidateManifest(join(root, "mcpb", "manifest.json"));
 
 if (manifest.version !== packageDocument.version) {
   throw new Error(`MCPB version ${manifest.version} must match package version ${packageDocument.version}`);
@@ -32,16 +33,14 @@ await build({
 
 await writeFile(join(staging, "manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);
 await cp(join(root, "mcpb", "README.md"), join(staging, "README.md"));
-await writeFile(join(staging, ".mcpbignore"), "*.map\n");
-
-const cli = join(root, "node_modules", "@anthropic-ai", "mcpb", "dist", "cli", "cli.js");
 const output = join(buildRoot, `redis-agent-memory-${packageDocument.version}.mcpb`);
-const packed = spawnSync(process.execPath, [cli, "pack", staging, output], {
-  cwd: root,
-  encoding: "utf8",
-  stdio: ["ignore", "pipe", "pipe"],
+const archive = zipSync({
+  "manifest.json": await readFile(join(staging, "manifest.json")),
+  "README.md": await readFile(join(staging, "README.md")),
+  "server/index.js": await readFile(join(serverDirectory, "index.js")),
+}, {
+  level: 9,
+  mtime: new Date("2000-01-01T00:00:00Z"),
 });
-process.stdout.write(packed.stdout);
-process.stderr.write(packed.stderr);
-if (packed.status !== 0) process.exit(packed.status ?? 1);
-process.stdout.write(`${output}\n`);
+await writeFile(output, archive);
+process.stdout.write(`Packed 3 files to ${output}\n`);

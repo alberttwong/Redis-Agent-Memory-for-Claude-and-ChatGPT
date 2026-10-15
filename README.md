@@ -1,66 +1,43 @@
 # Redis Agent Memory MCP bridge
 
-Automatic memory saving is the default operating mode for configured Codex projects. Every submitted prompt and available final response is written to a private local retry queue before delivery to Redis Agent Memory. New sessions automatically recall recent context for the same user and project. Agents do not need to call a memory tool or ask the user for owner, namespace, session, or memory IDs on each turn.
+Give Claude Desktop and ChatGPT Desktop a durable project memory backed by Redis Agent Memory. The project keeps useful context available across new chats and agent handoffs, without making people repeat the project history every time.
 
-The project can also expose native Redis MCP tools for explicit searches and writes, and includes an optional local bridge for ordered session events and structured task checkpoints. Ordinary Claude Desktop chat does not run local Codex or Claude Code hooks.
+In a local Codex chat inside ChatGPT Desktop, submitted prompts and available final responses are saved automatically and retried after outages. Claude Desktop uses a one-click MCPB extension to search memory, record important work, and save checkpoints. Existing Claude and ChatGPT exports can also be imported into the same Redis memory store.
 
-## Quick start
+## When to use it
 
-Install the project-scoped hooks and default-enabled capture configuration:
+- Continue a project in a new chat without restating earlier decisions.
+- Hand work between Claude Desktop, ChatGPT Desktop, Claude Code, and Codex.
+- Recover the latest goal, completed work, blockers, and next steps after a break.
+- Search durable decisions across related tasks while keeping projects separated by namespace.
+- Seed Redis Agent Memory with existing Claude or ChatGPT conversation exports.
 
-```sh
-git clone https://github.com/alberttwong/redis-agent-memory-mcp.git
-cd redis-agent-memory-mcp
-npm ci
-npm run capture:install
-```
+## Choose a quickstart
 
-The installer preserves existing hooks and configuration. It creates a private `.env` only when one does not exist, enables capture in `.memory-capture.json`, and ignores the local retry queue. Add the Redis values to `.env`:
+- [Claude Desktop quickstart](docs/quickstart-claude-desktop.md): build and install the MCPB extension, verify Redis, and optionally import Claude history.
+- [ChatGPT Desktop quickstart](docs/quickstart-chatgpt-desktop.md): enable automatic saving in a local Codex project and optionally import ChatGPT history.
 
-```dotenv
-AGENT_MEMORY_BASE_URL=https://your-agent-memory-endpoint
-AGENT_MEMORY_STORE_ID=your-store-id
-AGENT_MEMORY_API_KEY=your-store-api-key
-```
+## What is automatic
 
-Confirm the local setup without contacting Redis:
+| Client or workflow | Memory behavior | Retry queue |
+| --- | --- | --- |
+| ChatGPT Desktop, local Codex chat | Prompts and available final responses save automatically after project hooks are trusted | Yes |
+| Claude Desktop | Claude chooses when to call the extension's memory and checkpoint tools | No |
+| Claude or ChatGPT import | Preview by default; `--write` queues selected historical records | Yes |
+| Cloud-orchestrated ChatGPT Work chat | Local project hooks do not run | No |
 
-```sh
-npm run capture:doctor
-```
+Automatic saving is enabled by default when `ram-capture install` creates a project configuration. It can be disabled explicitly in `.memory-capture.json`. Claude Desktop remains model-directed because ordinary Desktop Chat does not expose the lifecycle hooks needed for passive capture.
 
-Open the repository in a local Codex session, then use `/hooks` to inspect and trust the installed hook definition. Codex requires that security review and normal installers cannot approve it silently. Trust is tied to the exact hook definition, so changed hooks must be reviewed again. Start a new local session after installation or trust approval; saving and startup recall then happen automatically on ordinary turns. Set `enabled` to `false` in `.memory-capture.json` to opt out.
+## Import existing history
 
-Local command hooks do not run in cloud-orchestrated Work chats, even when those chats use local computer access. This automatic-saving workflow requires local-only Codex orchestration; enterprise deployments can use supported managed MCP hooks instead. See the [official Codex hooks documentation](https://learn.chatgpt.com/docs/hooks) for current support boundaries.
-
-For another repository, run `ram-capture install --project /absolute/path/to/project`; see the [automatic capture guide](docs/automatic-capture.md) for installation, identity, retry, and uninstall details.
-
-## Optional direct native MCP access
-
-Automatic saving does not require agent-facing native MCP access. See [Optional native MCP connector setup](docs/native-mcp-setup.md) when Claude Desktop or Codex should also perform explicit memory searches, writes, or document operations.
-
-## Claude Desktop
-
-Build the one-click desktop extension:
+Both importers are dry runs unless `--write` is supplied:
 
 ```sh
-npm ci
-npm run mcpb:test
+npm run capture:import:claude -- --input /path/to/claude-export.zip
+npm run capture:import:chatgpt -- --input /path/to/chatgpt-export.zip
 ```
 
-In Claude Desktop, open **Settings → Extensions → Advanced settings → Install Extension…** and select `build/redis-agent-memory-0.1.0.mcpb`. Claude Desktop collects the Redis connection settings during installation and stores the API key through its secure configuration mechanism.
-
-The CLI installer remains available as a development fallback:
-
-```sh
-npm run capture:install:claude-desktop
-```
-
-This is not passive automatic capture: Desktop Chat does not expose the prompt and response lifecycle hooks used by local Codex. See [Claude Desktop setup and limitations](docs/claude-desktop.md) for configuration, verification, status, retry, and removal.
-
-## Automatic saving operations
-
-Status checks, retries, scope details, installation for another project, and removal instructions are in [Automatic saving operations](docs/automatic-saving-operations.md). For event behavior and implementation details, see the [automatic capture guide](docs/automatic-capture.md).
+They preserve roles and timestamps, redact known credential patterns, use deterministic record IDs, and support conversation/date filters. See [Import existing memories](docs/importing-memories.md) before writing a large export.
 
 ## Redis Agent Memory capabilities
 
@@ -106,6 +83,27 @@ Have Claude Code investigate a failing test, record attempted fixes and findings
 ### Keep project context separate
 
 Configure a separate namespace for each project and use a distinct session ID for each task. Semantic recall includes the owner filter and, when configured, the namespace filter. This keeps unrelated project memories out of ordinary searches; these filters organize retrieval and do not replace service authentication or authorization.
+
+## Technical setup and operations
+
+For local Codex automatic capture, the installer creates trusted-project hook configuration, a default-enabled `.memory-capture.json`, a private `.env` template, and a local retry queue:
+
+```sh
+git clone https://github.com/alberttwong/redis-agent-memory-mcp.git
+cd redis-agent-memory-mcp
+npm ci
+npm run capture:install
+```
+
+Add `AGENT_MEMORY_BASE_URL`, `AGENT_MEMORY_STORE_ID`, and `AGENT_MEMORY_API_KEY` to `.env`, then run `npm run capture:doctor`. Open the repository in a local Codex chat, review and trust the hook with `/hooks`, and start a new session. See [Automatic capture](docs/automatic-capture.md) and [Automatic saving operations](docs/automatic-saving-operations.md) for identity, retries, another-project installation, and removal.
+
+### Claude Desktop packaging
+
+Run `npm run mcpb:test`, then install `build/redis-agent-memory-0.1.0.mcpb` from **Claude Desktop → Settings → Extensions → Advanced settings → Install Extension…**. The CLI installer remains available as a development fallback with `npm run capture:install:claude-desktop`. See [Claude Desktop setup and limitations](docs/claude-desktop.md) for configuration, verification, status, retry, and removal.
+
+### Optional direct native MCP access
+
+Automatic saving does not require agent-facing native MCP access. See [Optional native MCP connector setup](docs/native-mcp-setup.md) when Claude Desktop or Codex should also perform explicit memory searches, writes, or document operations.
 
 ## Architecture
 

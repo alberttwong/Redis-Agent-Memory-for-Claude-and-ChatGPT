@@ -5,33 +5,49 @@ import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import { captureConfigSchema, enqueue, flush, makeEntry, pendingCount, scope, type CaptureTransport, type HookInput } from "./capture.js";
+import { captureConfigSchema, enqueue, flush, makeEntry, pendingCount, projectNamespace, scope, type CaptureTransport, type HookInput } from "./capture.js";
 import { captureHooksInstalled, installCapture, uninstallCapture } from "./capture-install.js";
+import { enqueueImport, planChatGptImport, planClaudeImport, type ImportProvider } from "./claude-import.js";
 import {
   claudeDesktopBridgeStatus,
   defaultClaudeDesktopConfigPath,
   installClaudeDesktopBridge,
   uninstallClaudeDesktopBridge,
 } from "./claude-desktop-install.js";
+import { defaultOwnerId } from "./identity.js";
 
 const mode = process.argv[2] ?? "hook";
 const source = process.argv[3] ?? "codex";
 const claudeDesktop = process.argv.includes("--claude-desktop");
 function option(name: string): string | undefined {
   const index = process.argv.indexOf(name);
-  return index >= 0 ? process.argv[index + 1] : undefined;
+  const value = index >= 0 ? process.argv[index + 1] : undefined;
+  if (index >= 0 && (!value || value.startsWith("--"))) throw new Error(`${name} requires a value`);
+  return value;
 }
 let inferredRoot = process.cwd();
 try { inferredRoot = execFileSync("git", ["rev-parse", "--show-toplevel"], {encoding: "utf8", stdio: ["ignore", "pipe", "ignore"]}).trim(); } catch {}
 const projectRoot = resolve(option("--project") ?? process.env.MEMORY_CAPTURE_PROJECT_ROOT ?? inferredRoot);
 const queue = join(projectRoot, ".memory-capture", "queue");
 let config: ReturnType<typeof captureConfigSchema.parse>;
+let importSummary: Record<string, unknown> | undefined;
 
 function claudeConfigPath(): string {
   return resolve(option("--claude-config") ?? defaultClaudeDesktopConfigPath());
 }
 
 function output(data: unknown) { process.stdout.write(JSON.stringify(data) + "\n"); }
+function identifier(value: string, label: string): string {
+  if (!/^[A-Za-z0-9-]{1,64}$/.test(value)) throw new Error(`${label} must contain 1-64 letters, numbers, or hyphens`);
+  return value;
+}
+function dateOption(name: string): Date | undefined {
+  const value = option(name);
+  if (!value) return undefined;
+  const date = new Date(value);
+  if (Number.isNaN(date.valueOf())) throw new Error(`${name} must be an ISO date or timestamp`);
+  return date;
+}
 function unpack(value: unknown): any {
   const result = value as { isError?: boolean; structuredContent?: unknown; content?: unknown[] };
   if (result.isError) throw new Error("Redis MCP tool returned an error");
@@ -96,11 +112,24 @@ async function main() {
       "  doctor     Check hook, config, credentials, and retry queue state",
       "  status     Print capture identity and pending queue count",
       "  flush      Retry queued writes",
+      "  import-claude  Preview or import a Claude export",
+      "  import-chatgpt Preview or import a ChatGPT data export",
       "  uninstall  Remove only hooks installed by ram-capture",
       "  hook       Handle a Codex hook event on stdin",
       "",
       "Claude Desktop mode installs the local bridge for best-effort, model-directed",
       "saving. It cannot passively observe every Desktop Chat prompt and response.",
+      "",
+      "Import options:",
+      "  --input PATH        Export ZIP, conversations JSON, or copied memory text",
+      "  --owner ID          Redis owner ID",
+      "  --namespace ID      Redis namespace",
+      "  --conversation TEXT Import matching conversation titles only",
+      "  --after DATE        Import messages at or after this date",
+      "  --before DATE       Import messages at or before this date",
+      "  --limit N           Import at most N source messages",
+      "  --preview N         Show N records in the dry-run preview (default 10)",
+      "  --write             Queue and deliver records; omitted means dry run",
       "",
     ].join("\n"));
     return;
@@ -170,22 +199,85 @@ async function main() {
     throw new Error("Claude Desktop best-effort capture has no local retry queue; retry the MCP tool call in Claude Desktop");
   }
 
-  config = captureConfigSchema.parse(JSON.parse(await readFile(join(projectRoot, ".memory-capture.json"), "utf8")));
-  if (mode === "status") {
-    const resolved = scope(config, projectRoot, source, {hook_event_name: "SessionStart", session_id: "status"});
-    output({ enabled: config.enabled, ownerId: resolved.owner, namespace: resolved.namespace, pending: await pendingCount(queue) });
-    return;
+  if (mode === "import-claude" || mode === "import-chatgpt") {
+    const provider: ImportProvider = mode === "import-claude" ? "claude" : "chatgpt";
+    const inputPath = option("--input");
+    if (!inputPath) throw new Error("--input PATH is required");
+    let defaults = captureConfigSchema.parse({});
+    try {
+      defaults = captureConfigSchema.parse(JSON.parse(await readFile(join(projectRoot, ".memory-capture.json"), "utf8")));
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw new Error("Invalid .memory-capture.json");
+    }
+    const ownerId = identifier(
+      option("--owner") ?? process.env.MEMORY_CAPTURE_OWNER_ID ?? defaults.ownerId
+        ?? process.env.AGENT_MEMORY_OWNER_ID ?? defaultOwnerId(),
+      "owner",
+    );
+    const namespace = identifier(option("--namespace") ?? defaults.namespace ?? projectNamespace(projectRoot), "namespace");
+    const rawLimit = option("--limit");
+    const limit = rawLimit === undefined ? undefined : Number(rawLimit);
+    if (limit !== undefined && (!Number.isInteger(limit) || limit < 1 || limit > 1_000_000)) {
+      throw new Error("--limit must be an integer from 1 to 1000000");
+    }
+    const rawPreview = option("--preview") ?? "10";
+    const preview = Number(rawPreview);
+    if (!Number.isInteger(preview) || preview < 0 || preview > 100) {
+      throw new Error("--preview must be an integer from 0 to 100");
+    }
+    const planner = provider === "claude" ? planClaudeImport : planChatGptImport;
+    const plan = await planner(resolve(inputPath), {
+      ownerId,
+      namespace,
+      after: dateOption("--after"),
+      before: dateOption("--before"),
+      conversation: option("--conversation"),
+      limit,
+      secrets: [process.env.AGENT_MEMORY_API_KEY ?? ""],
+    });
+    const summary = {
+      provider,
+      inputPath: plan.inputPath,
+      sourceFiles: plan.sourceFiles,
+      conversations: plan.conversations,
+      records: plan.records.length,
+      skipped: plan.skipped,
+      ownerId,
+      namespace,
+      preview: plan.records.slice(0, preview).map((record) => JSON.parse(record.text)),
+    };
+    if (!process.argv.includes("--write")) {
+      output({ dryRun: true, ...summary });
+      return;
+    }
+    const queued = await enqueueImport(queue, plan.records);
+    importSummary = { dryRun: false, ...summary, ...queued };
+    if (!plan.records.length) {
+      output({ ...importSummary, sent: 0, pending: await pendingCount(queue) });
+      return;
+    }
   }
-  if (!config.enabled) { if (mode === "hook") output({}); return; }
+
+  if (!importSummary && mode !== "flush") {
+    config = captureConfigSchema.parse(JSON.parse(await readFile(join(projectRoot, ".memory-capture.json"), "utf8")));
+    if (mode === "status") {
+      const resolved = scope(config, projectRoot, source, {hook_event_name: "SessionStart", session_id: "status"});
+      output({ enabled: config.enabled, ownerId: resolved.owner, namespace: resolved.namespace, pending: await pendingCount(queue) });
+      return;
+    }
+    if (!config.enabled) { if (mode === "hook") output({}); return; }
+  }
   let input: HookInput | undefined;
-  if (mode === "hook") {
+  if (!importSummary && mode === "hook") {
     let raw = "";
     for await (const chunk of process.stdin) raw += chunk;
     input = JSON.parse(raw);
     if (!input || typeof input.session_id !== "string" || !input.session_id) throw new Error("Missing hook session identity");
     const entry = makeEntry(config, projectRoot, source, input, [process.env.AGENT_MEMORY_API_KEY ?? ""]);
     if (entry) await enqueue(queue, entry);
-  } else if (mode !== "flush") throw new Error("Expected install, doctor, status, flush, uninstall, help, or hook");
+  } else if (!importSummary && mode !== "flush") {
+    throw new Error("Expected install, doctor, status, flush, import-claude, import-chatgpt, uninstall, help, or hook");
+  }
 
   // Enqueue before touching the network so missing credentials/outages preserve the prompt.
   const key = process.env.AGENT_MEMORY_API_KEY;
@@ -213,6 +305,7 @@ async function main() {
       },
     };
     const result = await flush(queue, storage);
+    if (importSummary) { output({ ...importSummary, ...result }); return; }
     if (mode === "flush") { output(result); return; }
     if (input?.hook_event_name === "SessionStart") {
       const resolved = scope(config, projectRoot, source, input);
