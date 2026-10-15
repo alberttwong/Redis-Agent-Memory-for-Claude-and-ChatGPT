@@ -57,6 +57,10 @@ export async function validateChatGptPluginSources() {
   if (JSON.stringify(mcp).includes("mem1_") || JSON.stringify(mcp).includes("AGENT_MEMORY_API_KEY=")) {
     throw new Error("Plugin configuration must not contain credentials");
   }
+  const runtimePackage = JSON.parse(await readFile(join(localRoot, "package.json"), "utf8"));
+  if (runtimePackage.type !== "module") {
+    throw new Error("Bundled ESM servers require a plugin-root package.json with type=module");
+  }
   const hooks = JSON.parse(await readFile(join(localRoot, "hooks", "hooks.json"), "utf8"));
   for (const event of ["SessionStart", "UserPromptSubmit", "Stop"]) {
     const handler = hooks.hooks?.[event]?.[0]?.hooks?.[0];

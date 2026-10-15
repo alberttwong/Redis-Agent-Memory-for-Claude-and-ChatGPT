@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -12,7 +12,7 @@ const packageDocument = JSON.parse(await readFile(join(root, "package.json"), "u
 const localArchive = unzipSync(await readFile(join(root, "build", `redis-agent-memory-chatgpt-local-${packageDocument.version}.zip`)));
 const remoteArchive = unzipSync(await readFile(join(root, "build", "redis-agent-memory-chatgpt-remote-test.zip")));
 
-for (const name of ["plugin.json", "mcp.json", "hooks/hooks.json", "server/index.js", "server/capture-cli.js", "skills/setup-redis-memory/SKILL.md"]) {
+for (const name of ["plugin.json", "package.json", "mcp.json", "hooks/hooks.json", "server/index.js", "server/capture-cli.js", "skills/setup-redis-memory/SKILL.md"]) {
   assert(localArchive[name], `Local plugin is missing ${name}`);
 }
 assert.equal(Object.keys(remoteArchive).some((name) => name.startsWith("hooks/") || name.startsWith("server/")), false);
@@ -21,28 +21,33 @@ assert.equal(
   "https://memory.example.test/mcp",
 );
 
-const server = join(root, "build", "chatgpt-plugin", "local", "server", "index.js");
-const transport = new StdioClientTransport({ command: process.execPath, args: [server], stderr: "pipe" });
-const client = new Client({ name: "chatgpt-plugin-smoke-test", version: "0.1.0" });
-try {
-  await client.connect(transport);
-  const result = await client.listTools();
-  assert.deepEqual(result.tools.map((tool) => tool.name).sort(), [
-    "checkpoint_save",
-    "memory_append",
-    "memory_get_session",
-    "memory_health",
-    "memory_search",
-    "resume_context",
-  ]);
-} finally {
-  await client.close();
-}
-
+const installed = await mkdtemp(join(tmpdir(), "ram-plugin-installed-"));
 const project = await mkdtemp(join(tmpdir(), "ram-plugin-hook-"));
 try {
+  for (const [name, contents] of Object.entries(localArchive)) {
+    const path = join(installed, name);
+    await mkdir(resolve(path, ".."), { recursive: true });
+    await writeFile(path, contents);
+  }
+  const server = join(installed, "server", "index.js");
+  const transport = new StdioClientTransport({ command: process.execPath, args: [server], stderr: "pipe" });
+  const client = new Client({ name: "chatgpt-plugin-smoke-test", version: "0.1.0" });
+  try {
+    await client.connect(transport);
+    const result = await client.listTools();
+    assert.deepEqual(result.tools.map((tool) => tool.name).sort(), [
+      "checkpoint_save",
+      "memory_append",
+      "memory_get_session",
+      "memory_health",
+      "memory_search",
+      "resume_context",
+    ]);
+  } finally {
+    await client.close();
+  }
   const hook = spawnSync(process.execPath, [
-    join(root, "build", "chatgpt-plugin", "local", "server", "capture-cli.js"),
+    join(installed, "server", "capture-cli.js"),
     "hook",
     "codex",
     "--project",
@@ -55,6 +60,7 @@ try {
   assert.equal(hook.stdout, "{}\n");
   assert.equal(hook.stderr, "");
 } finally {
+  await rm(installed, { recursive: true, force: true });
   await rm(project, { recursive: true, force: true });
 }
 
