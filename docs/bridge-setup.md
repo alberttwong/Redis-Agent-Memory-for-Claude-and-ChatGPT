@@ -83,7 +83,7 @@ For connection failures, inspect `~/Library/Logs/Claude/`. See the [official loc
 
 ### 4. Connect Codex
 
-These steps add the optional structured session/checkpoint tools. They do not enable automatic prompt capture; use [Codex Desktop: automatic prompt capture](../README.md#codex-desktop-automatic-prompt-capture) for that.
+These steps add the optional structured session/checkpoint tools. Automatic saving is configured separately through the README's [quick start](../README.md#quick-start).
 
 Register the stdio bridge under a separate name to preserve an existing native connection:
 

@@ -4,8 +4,17 @@
   "private": true,
   "type": "module",
   "description": "Shared Redis Agent Memory bridge for Claude Code and Codex",
+  "files": [
+    "dist/src/",
+    "docs/",
+    "hooks/",
+    ".codex-plugin/",
+    "scripts/",
+    "README.md"
+  ],
   "bin": {
-    "redis-agent-memory-mcp": "dist/src/index.js"
+    "redis-agent-memory-mcp": "dist/src/index.js",
+    "ram-capture": "dist/src/capture-cli.js"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -13,6 +22,10 @@
     "start": "node dist/src/index.js",
     "capture:status": "zsh scripts/capture.sh status",
     "capture:flush": "zsh scripts/capture.sh flush",
+    "capture:install": "npm run build && node dist/src/capture-cli.js install",
+    "capture:doctor": "node dist/src/capture-cli.js doctor",
+    "capture:uninstall": "node dist/src/capture-cli.js uninstall",
+    "prepack": "npm run build",
     "test": "npm run build && node --test dist/**/*.test.js"
   },
   "engines": {
