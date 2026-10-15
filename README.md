@@ -94,7 +94,7 @@ sequenceDiagram
     participant Redis as Redis Agent Memory
     participant ChatGPT as ChatGPT plugin server
 
-    Note over Test,ChatGPT: Build and extract both packages; use isolated test owner and session
+    Note over Test,ChatGPT: Build and extract both packages with isolated test owner and session
     Test->>Claude: Start bundled server and call memory_health
     Claude->>Redis: Check service health
     Redis-->>Claude: Healthy
@@ -105,7 +105,7 @@ sequenceDiagram
     Claude->>Redis: Create canonical long-term checkpoint
     Redis-->>Claude: Checkpoint created
     Test->>Claude: Close server
-    Note over Claude,ChatGPT: Separate processes; no shared in-process state
+    Note over Claude,ChatGPT: Separate processes with no shared in-process state
     Test->>ChatGPT: Start bundled server and call memory_health
     ChatGPT->>Redis: Check service health
     Redis-->>ChatGPT: Healthy
