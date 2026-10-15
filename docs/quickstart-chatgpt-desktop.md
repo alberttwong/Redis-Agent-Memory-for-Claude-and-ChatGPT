@@ -4,18 +4,22 @@
 
 Use a local Codex chat inside the ChatGPT desktop app for default-enabled automatic saving. Project hooks queue submitted prompts and available final responses before sending them to Redis, then recall recent project context when a new local session starts.
 
-## 1. Build and install the desktop plugin
+## 1. Download and install the desktop plugin
 
-The [v0.1.0 release](https://github.com/alberttwong/redis-agent-memory-mcp/releases/tag/v0.1.0) includes the Claude Desktop `.mcpb` only. The ChatGPT plugin uses a separate package, so build it from source for this setup:
+Download `redis-agent-memory-chatgpt-local-<version>.zip` from the [latest release](https://github.com/alberttwong/redis-agent-memory-mcp/releases/latest). Use the ChatGPT local ZIP; the `.mcpb` file is for Claude Desktop.
+
+Install Node.js 20.12 or later to run the bundled plugin. Clone the repository for its local marketplace file, then extract the downloaded ZIP into the directory that marketplace points to:
 
 ```sh
 git clone https://github.com/alberttwong/redis-agent-memory-mcp.git
 cd redis-agent-memory-mcp
-npm ci
-npm run plugin:test
+mkdir -p build/chatgpt-plugin/local
+unzip /path/to/redis-agent-memory-chatgpt-local-0.1.0.zip -d build/chatgpt-plugin/local
 ```
 
-Restart ChatGPT Desktop. In the Plugins Directory, select **Redis Agent Memory local plugins** and install **Redis Agent Memory**. Review and trust its lifecycle hooks.
+Replace `/path/to/` with the download location and use the filename for your release. The extracted folder should contain `plugin.json` and `server/capture-cli.js` directly. No npm dependency installation or compilation is required. For development, see [Build from source](chatgpt-plugin.md#build-from-source).
+
+Open this checkout as a local Codex project, then restart ChatGPT Desktop. In the Plugins Directory, select **Redis Agent Memory local plugins** and install **Redis Agent Memory**. Review and trust its lifecycle hooks.
 
 ## 2. Configure automatic saving in the project
 
@@ -55,13 +59,13 @@ These steps follow the current [Codex environment](https://learn.chatgpt.com/doc
 In ChatGPT, request a data export from **Settings → Data controls → Export data**. When the ZIP arrives, preview it:
 
 ```sh
-npm run capture:import:chatgpt -- --input /path/to/chatgpt-export.zip
+node build/chatgpt-plugin/local/server/capture-cli.js import-chatgpt --project "$PWD" --input /path/to/chatgpt-export.zip
 ```
 
 Review the owner, namespace, record count, and sample records. Then queue and deliver it:
 
 ```sh
-npm run capture:import:chatgpt -- --input /path/to/chatgpt-export.zip --write
+node build/chatgpt-plugin/local/server/capture-cli.js import-chatgpt --project "$PWD" --input /path/to/chatgpt-export.zip --write
 ```
 
 The importer reads `conversations.json` and numbered conversation JSON files, preserves roles and timestamps, and uses deterministic IDs for safe retries. Add `--conversation`, `--after`, `--before`, or `--limit` to narrow a large export.
