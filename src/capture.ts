@@ -11,6 +11,9 @@ export const captureConfigSchema = z.object({
   sessionId: identifier.optional(),
   enabled: z.boolean().default(true),
   recallLimit: z.number().int().min(0).max(20).default(6),
+  promptRecall: z.boolean().default(true),
+  promptRecallLimit: z.number().int().min(0).max(20).default(5),
+  promptRecallThreshold: z.number().min(0).max(1).default(0.7),
 });
 export type CaptureConfig = z.infer<typeof captureConfigSchema>;
 export type HookInput = {
@@ -53,6 +56,11 @@ export function scope(config: CaptureConfig, root: string, source: string, input
   };
 }
 
+export function redactCaptureText(text: string, secrets: string[] = []): string {
+  for (const secret of secrets.filter(Boolean)) text = text.replaceAll(secret, "[REDACTED]");
+  return text.replace(/mem1_[A-Za-z0-9_=-]+/g, "[REDACTED]");
+}
+
 export function makeEntry(
   config: CaptureConfig, root: string, source: string, input: HookInput,
   secrets: string[] = [], now = new Date().toISOString(),
@@ -62,8 +70,7 @@ export function makeEntry(
     : input.hook_event_name === "Stop" ? "ASSISTANT" : undefined;
   let content = role === "USER" ? input.prompt : role === "ASSISTANT" ? input.last_assistant_message : undefined;
   if (!content || !role) return null;
-  for (const secret of secrets.filter(Boolean)) content = content.replaceAll(secret, "[REDACTED]");
-  content = content.replace(/mem1_[A-Za-z0-9_=-]+/g, "[REDACTED]");
+  content = redactCaptureText(content, secrets);
   const resolved = scope(config, root, source, input);
   // Codex provides a turn ID. Claude events without one get a fresh identity so
   // submitting the same prompt twice still captures two separate turns.

@@ -55,6 +55,28 @@ The handler uses the **native MCP `create_long_term_memories` tool with `memory_
 
 Startup recall uses filter-only `search_long_term_memory`, scoped to owner, namespace, and the `auto-capture` topic, ordered by update time. It returns at most `recallLimit` records (default 6) and limits context to 18,000 characters. This gives recent context, not a complete reconstruction of every conversation or a semantic summary. Retrieved content is marked as historical data; the agent still needs to verify the repository state.
 
+## Relevant memories before each prompt
+
+For configured local Claude Code and Codex projects, `UserPromptSubmit` automatically searches Redis using the submitted prompt and injects matching historical memories before the model processes the turn. No model-selected memory tool call is required. This requires Claude plugin v0.1.6+ or local ChatGPT plugin v0.1.5+; update the marketplace installation and start a fresh session.
+
+Search uses the native MCP tool's `text`, `owner_id`, and `namespace` fields together, with a default minimum cosine similarity of 0.7 and at most 5 results. It covers the owner's project memories, including saved checkpoints; it is not limited to the current session or automatically captured messages. Ranking comes from Redis, so matches are useful context rather than a guarantee of relevance or completeness.
+
+The current prompt enters the local retry queue first, then retrieval runs **before** queued writes are uploaded so that the new record does not match itself. Older identical prompts may still match. Search text is redacted using the capture credential rules and capped at 6,000 characters. Retrieved context is capped at 5,400 characters, keeps ranked order, and is labeled as untrusted historical data rather than instructions. The agent must still check current files and user instructions.
+
+The search has a six-second request timeout within the hook's existing total network budget. Empty results add no memories. A retrieval failure warns and continues with saving; a delivery failure preserves the queue and any context already retrieved. This adds a search per submitted prompt and may add latency and service usage.
+
+Existing project configurations get these defaults without being rewritten. To tune or disable retrieval separately from saving, add these fields to `.memory-capture.json` while preserving its other fields:
+
+```json
+{
+  "promptRecall": true,
+  "promptRecallLimit": 5,
+  "promptRecallThreshold": 0.7
+}
+```
+
+Set `promptRecall` to `false` (or its limit to zero) to keep saving without per-prompt searches. Setting the project's `enabled` to `false` disables both capture and automatic retrieval. Startup recent-memory recall still uses the separate `recallLimit` setting.
+
 ## Retry behavior
 
 Before network access, each event is written atomically to `.memory-capture/queue/` with private file permissions. Delivery removes an entry only when Redis acknowledges every record. Timeouts, outages, missing credentials, and partial failures retain the payload for later retry; the hook lets the conversation continue and emits a warning.
