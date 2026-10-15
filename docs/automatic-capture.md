@@ -2,6 +2,8 @@
 
 The project hooks save submitted prompts and final assistant responses to Redis without asking the user to supply memory IDs, an owner, a namespace, or a session on each turn. `SessionStart` fetches recent project memories and adds them as context for the next agent.
 
+For routine status checks, retries, installation in another project, and removal, see [Automatic saving operations](automatic-saving-operations.md).
+
 ## Install in this repository
 
 1. Install Node.js 20.12 or later, then run `npm install` and `npm run capture:install`.
