@@ -1,6 +1,51 @@
 # Redis Agent Memory MCP bridge
 
-This local MCP server gives Claude Code and Codex the same Redis Agent Memory store. It keeps ordered session events, searches durable memory, and maintains one canonical checkpoint per task session.
+Share Redis Agent Memory between Claude Code and Codex using Redis's native MCP endpoint. For standard long-term memory operations, connect directly to Redis without running this project's local server. This repository also includes an optional bridge for ordered session events and structured task checkpoints.
+
+## Recommended: connect to the native MCP endpoint
+
+Configure both clients to use the same Agent Memory service and store:
+
+```json
+{
+  "mcpServers": {
+    "redis-agent-memory": {
+      "url": "<MEMORY_URL>/v1/stores/<MEMORY_STORE_ID>/mcp",
+      "headers": {
+        "Authorization": "Bearer <MEMORY_KEY>"
+      }
+    }
+  }
+}
+```
+
+This illustrates the endpoint and authentication; use your client's supported configuration format and secret storage. `<MEMORY_URL>` is the HTTPS service endpoint, `<MEMORY_STORE_ID>` identifies your store, and `<MEMORY_KEY>` is its API key. The placeholder template is also available in `.mcp.native.json.example`. No local Node process or bridge installation is required for a direct connection. Keep populated configuration containing the key outside source control.
+
+### Verified native tools
+
+A live test on October 15, 2026 successfully authenticated, initialized an MCP client, discovered nine tools, and executed a read-only `search_long_term_memory` call scoped to a synthetic test owner and namespace. It returned an empty result without errors. No memories were written or deleted during testing.
+
+The tested endpoint exposed:
+
+- `create_long_term_memories`
+- `search_long_term_memory`
+- `edit_long_term_memory`
+- `delete_long_term_memories`
+- `create_document_ingestion`
+- `get_document_ingestion`
+- `list_document_ingestion_outputs`
+- `list_memory_sources`
+- `list_source_memories`
+
+Session-history, health, and combined resume tools were not present in that endpoint's discovered tool list. Availability can differ by deployment; discover the tools on your own service before relying on them. Write operations, embeddings, and document extraction were not verified by this read-only test.
+
+### Handoff using native tools
+
+In Claude Code, use `create_long_term_memories` to save progress under a stable memory ID such as `checkout-retry-123-handoff`, with the same `owner_id`, `namespace`, and `session_id` throughout the task. Include the current goal, decisions, completed work, next steps, blockers, branch, and test results in the memory text. Use `edit_long_term_memory` to update the existing handoff record as work progresses.
+
+In Codex, use `search_long_term_memory` with the matching `owner_id`, `namespace`, and `session_id` to retrieve the saved handoff. Filter-only searches can use `sort_by: "updatedAt"` and `sort_order: "desc"`. Inspect the shared repository before continuing. Save regularly so a sudden credit limit leaves a recent checkpoint available.
+
+The native tools use snake_case arguments; the optional bridge tools below use camelCase. The snippets in `integration/` are specifically for the bridge and reference its tool names.
 
 ## Redis Agent Memory capabilities
 
@@ -16,6 +61,8 @@ Redis Agent Memory provides:
 See the [Redis Agent Memory documentation](https://redis.io/docs/latest/develop/ai/context-engine/agent-memory/) for the service's full capabilities. This bridge currently exposes semantic search through `memory_search`; keyword and hybrid search are not exposed as separate bridge tools. When automatic summarization is enabled, session retrieval can return a summary and recent events rather than every original turn; use `includeSummarisedEvents` when requesting the underlying session history.
 
 ## Use cases
+
+The examples below use the optional bridge's tools. For a direct native connection, use the native handoff workflow above.
 
 ### Switch agents when credits run out
 
@@ -47,6 +94,19 @@ Configure a separate namespace for each project and use a distinct session ID fo
 
 ## Architecture
 
+The recommended direct connection shares long-term memory through the native endpoint:
+
+```mermaid
+flowchart TD
+    Claude[Claude Code] -->|MCP over HTTPS with bearer authentication| Native[Redis Agent Memory native MCP endpoint]
+    Codex[Codex] -->|MCP over HTTPS with bearer authentication| Native
+    Native --> Memories[Shared long-term memory in Redis]
+    Claude -->|Read and edit files| Repo[Shared repository and Git state]
+    Codex -->|Read and edit files| Repo
+```
+
+The optional bridge adds session history and structured resume tools through the Redis SDK:
+
 ```mermaid
 flowchart TD
     Claude[Claude Code] -->|MCP over stdio| ClaudeBridge[Local bridge process]
@@ -77,7 +137,7 @@ Each client launches its own local bridge process. Both processes use the same R
 
 The bridge records only the content agents explicitly send through its tools. It does not automatically capture every chat turn, detect exhausted credits, switch clients, or transfer a model's hidden reasoning. Use the included agent instruction snippets to establish a regular save-and-resume workflow, and share or synchronize the working tree separately.
 
-## Tools
+## Optional bridge tools
 
 - `memory_health` checks the configured Redis Agent Memory store.
 - `memory_append` records an ordered user, assistant, or system event.
@@ -86,7 +146,11 @@ The bridge records only the content agents explicitly send through its tools. It
 - `checkpoint_save` creates or updates the task's durable handoff record.
 - `resume_context` returns the exact checkpoint, current session, and relevant long-term memories together.
 
-## 1. Configure Redis Agent Memory
+## Optional bridge setup
+
+The following steps install the local bridge. Skip them when using the native endpoint directly.
+
+### 1. Configure Redis Agent Memory
 
 Clone the repository (requires access while the repository is private):
 
@@ -114,7 +178,7 @@ AGENT_MEMORY_AGENT_ID=shared-agent
 
 `AGENT_MEMORY_NAMESPACE_ID` is preferred. For an older store without namespace resources, set `AGENT_MEMORY_NAMESPACE=project-memory` instead. Never commit `.env`.
 
-## 2. Build and verify
+### 2. Build and verify
 
 ```sh
 npm install
@@ -127,7 +191,7 @@ The launch script loads `.env`, finds Node through NVM when necessary, builds on
 ./scripts/start.sh
 ```
 
-## 3. Connect Claude Code
+### 3. Connect Claude Code
 
 Copy `.mcp.json.example` to `.mcp.json` in the project Claude will work in. Update the absolute path if this bridge moves:
 
@@ -137,7 +201,7 @@ cp .mcp.json.example .mcp.json
 
 Copy the guidance in `integration/CLAUDE.md.snippet` into that project's `CLAUDE.md`. Start a fresh Claude Code session after changing MCP configuration.
 
-## 4. Connect Codex
+### 4. Connect Codex
 
 Register the same stdio server:
 
@@ -161,7 +225,7 @@ Long-term extraction is asynchronous. `resume_context` does not rely only on ext
 
 ## Security notes
 
-- The store API key stays in `.env` and is never returned by an MCP tool.
-- Every semantic search is filtered by `ownerId`; namespace filtering is applied when configured.
+- For the optional bridge, the store API key stays in `.env` and is never returned by a bridge tool. For native connections, use the client's secret storage or a local untracked configuration.
+- The optional bridge filters semantic search by `ownerId` and applies namespace filtering when configured. With native tools, explicitly pass the appropriate `owner_id` and `namespace` filters.
 - Redis semantic exclusions are advisory. Do not send secrets or sensitive transient data to session memory.
-- The MCP server performs no deletes. Deletion and export workflows should be added only with an explicit retention policy.
+- The optional bridge exposes no delete tool. The native endpoint does expose `delete_long_term_memories`; use it only for intended memory removals.
