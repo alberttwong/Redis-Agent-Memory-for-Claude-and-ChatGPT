@@ -55,121 +55,91 @@ See the [Redis Agent Memory documentation](https://redis.io/docs/latest/develop/
 
 ## Use cases
 
-### Switch agents when credits run out
+Once you have connected your apps to the same project memory using the [quickstarts](#choose-a-quickstart), ask your assistant to remember progress and pick it up later. Here are some everyday examples.
+
+### Continue in ChatGPT after starting in Claude
+
+You work with Claude on checkout retries and agree to allow seven attempts. Before leaving, you ask:
+
+> Remember that we agreed on seven attempts. Save where we left off and what to do next.
+
+Later, you open ChatGPT and ask:
+
+> Pick up the checkout retry task from my saved progress. What did we decide, and what's next?
+
+ChatGPT recalls the decision and explains that implementing the seven-attempt limit is next. You can keep working without retelling the earlier discussion.
 
 ```mermaid
 sequenceDiagram
     actor User
     participant Claude as Claude Desktop
-    participant Memory as Shared project memory
     participant ChatGPT as ChatGPT Desktop
 
     User->>Claude: Help me decide how checkout retries should work
     Claude-->>User: Let's allow up to seven attempts
-    User->>Claude: Remember that decision and save where we left off
-    Claude->>Memory: Save the decision and next step
-    Memory-->>Claude: Progress saved
+    User->>Claude: Remember that decision and save what to do next
     Claude-->>User: Saved. Next step is to implement the seven-attempt limit
-    Note over User,ChatGPT: Later, the user switches apps or starts a new chat
-    User->>ChatGPT: Continue the checkout retry task from our saved progress
-    ChatGPT->>Memory: Recall the task's saved progress
-    Memory-->>ChatGPT: Seven attempts agreed, implementation is next
-    ChatGPT-->>User: We agreed on seven attempts. I'll continue with the implementation
-    Note over User,ChatGPT: The user continues without repeating the earlier discussion
+    Note over User,ChatGPT: Later, the user switches to ChatGPT
+    User->>ChatGPT: Pick up the checkout retry task from my saved progress
+    ChatGPT-->>User: We agreed on seven attempts. Implementation is next
+    User->>ChatGPT: Let's continue from there
 ```
 
-Start a task in Claude Code and continue in Codex when you reach your Claude usage limit. Both clients connect to this bridge using the same Redis store, owner, namespace, and task session ID. Save checkpoints during the work so the next agent can retrieve the latest saved goal, decisions, completed work, blockers, and next steps with `resume_context`.
+### Keep going when you reach a usage limit
 
-Example prompts, using `checkout-retry-123` as the shared session ID:
+You are partway through a task in Claude when you reach your usage limit. Open your other connected assistant and ask:
 
-> **In Claude Code:** Work on checkout retries using memory session `checkout-retry-123`. Record important progress and save a checkpoint after each milestone, including the repository path, branch, changed files, test results, and next steps.
+> Continue the checkout retry task from the latest saved progress. Tell me where we left off before making changes.
 
-> **In Codex:** Call `resume_context` for session `checkout-retry-123` with query "checkout retries, decisions, tests, blockers, and next steps". Inspect the repository and current Git state, then continue from the latest checkpoint.
+The assistant uses your saved progress to help you continue. Ask it to save progress at milestones so an unexpected interruption leaves a recent stopping point.
 
-Saving regularly matters: if a usage limit interrupts Claude before its next checkpoint, Codex can recover only what was already written to Redis and the shared working tree.
+### Return after a break or start a fresh chat
 
-### Resume after a break or a new chat
+You come back to an unfinished task the next morning, or start a new chat when the old one gets long.
 
-Return to an unfinished feature or investigation without explaining the whole task again. Use the original session ID to retrieve its checkpoint, ordered conversation events, and any session summary returned by Redis. The next agent can establish what was tried and where to continue.
+> Pick up the checkout retry task. Remind me what we've finished and what still needs doing.
 
-### Recall decisions across related tasks
+Your assistant recalls the saved progress, gives you a recap, and helps you choose the next step.
 
-Use `memory_search` to recall earlier architectural decisions, project constraints, or durable preferences before starting related work. For example, query "why did we choose exponential backoff for checkout retries?" within the same owner and project namespace. Relevant long-term memories can be retrieved across task sessions after Redis has extracted them.
+### Remember why you made a decision
 
-### Hand off an investigation between agents
+You are working on a related feature and want to understand an earlier choice.
 
-Have Claude Code investigate a failing test, record attempted fixes and findings, and save a checkpoint. Codex can retrieve that context and implement the next proposed step. Both agents need access to the relevant repository and files; memory records describe the work but do not transfer files or running processes.
+> What do you remember about why we chose seven checkout retry attempts?
 
-### Continue a Claude Desktop task in ChatGPT Desktop
+Your assistant searches your saved project memories so you can revisit the reasoning without digging through old chats.
 
-Claude records the decision that checkout retries should allow seven attempts, then saves a checkpoint with the next step: implement that limit. ChatGPT retrieves the original event and checkpoint from the same Redis store and resumes with the saved decision and next step.
+### Hand over an investigation
 
-Use the same project memory and task session in both apps. Save progress before switching so ChatGPT can pick up the latest decision without asking you to repeat the conversation.
+You ask Claude to investigate a failing test. Before switching assistants, ask:
 
-The [end-to-end handoff test](integration/claude-chatgpt.test.mjs) verifies the memory persistence and retrieval behind this journey using the packaged Claude and ChatGPT servers. It drives MCP calls directly without opening either Desktop app or asking a model to implement the retry limit. See [how to run the handoff test](#test-the-claude-to-chatgpt-handoff) for setup and coverage limits.
+> Save what you've tried, what you found, and the next thing we should check.
 
-### Keep project context separate
+Then ask ChatGPT:
 
-Configure a separate namespace for each project and use a distinct session ID for each task. Semantic recall includes the owner filter and, when configured, the namespace filter. This keeps unrelated project memories out of ordinary searches; these filters organize retrieval and do not replace service authentication or authorization.
+> Continue the failing-test investigation from the saved findings.
+
+ChatGPT can build on the recorded findings. Make the relevant project files available in both apps so it can continue the work.
+
+### Keep different projects organized
+
+You work on several projects and want each assistant to recall the right background. Set up separate project memories, then name the project when asking to continue:
+
+> In the checkout project, remind me what we decided about retries.
+
+Your assistant can focus on that project's saved decisions and progress.
+
+These examples rely on progress that has been saved. You choose when to switch apps, and each app needs access to the project files you want to work on.
+
+For connection settings and tool-level examples, see the [technical handoff guide](docs/handoff-workflow.md).
 
 ## Architecture
 
-The recommended direct connection shares long-term memory through the native endpoint:
-
-```mermaid
-flowchart TD
-    Claude[Claude Code] -->|MCP over HTTPS with bearer authentication| Native[Redis Agent Memory native MCP endpoint]
-    Codex[Codex] -->|MCP over HTTPS with bearer authentication| Native
-    Native --> Memories[Shared long-term memory in Redis]
-    Claude -->|Read and edit files| Repo[Shared repository and Git state]
-    Codex -->|Read and edit files| Repo
-```
-
-The optional bridge adds session history and structured resume tools through the Redis SDK:
-
-```mermaid
-flowchart TD
-    Claude[Claude Code] -->|MCP over stdio| ClaudeBridge[Local bridge process]
-    Codex[Codex] -->|MCP over stdio| CodexBridge[Local bridge process]
-
-    subgraph Bridge[Same bridge implementation and Redis configuration]
-        ClaudeBridge
-        CodexBridge
-    end
-
-    ClaudeBridge -->|Official Redis SDK over HTTPS| RAM[Redis Agent Memory service]
-    CodexBridge -->|Official Redis SDK over HTTPS| RAM
-
-    subgraph Redis[Shared memory in Redis]
-        RAM --> Sessions[Session events and optional summary]
-        RAM --> Checkpoints[Canonical task checkpoint]
-        RAM --> Memories[Searchable long-term memories]
-        Sessions -.->|Background extraction when enabled| Memories
-    end
-
-    Claude -->|Read and edit files| Repo[Shared repository and Git state]
-    Codex -->|Read and edit files| Repo
-```
-
-Each client launches its own local bridge process. Both processes use the same Redis Agent Memory endpoint and store, with matching owner and namespace settings. A shared task session ID links the work across clients.
-
-`memory_append` writes session events. `checkpoint_save` writes or updates a deterministic long-term memory record for the task. `resume_context` fetches that checkpoint directly, retrieves session history, and searches for relevant long-term memories in parallel.
-
-The MCP bridge records content agents send through its tools. The default-enabled [capture hooks](docs/automatic-capture.md) save submitted prompts and available final responses without tool calls by the model. Neither mechanism detects exhausted credits, switches clients, or transfers hidden reasoning. Share or synchronize the working tree separately.
+Claude and ChatGPT share saved project context through Redis Agent Memory. See the [architecture diagrams and implementation details](docs/handoff-workflow.md#architecture).
 
 ## Test the Claude-to-ChatGPT handoff
 
-Run `npm ci`, configure `AGENT_MEMORY_BASE_URL`, `AGENT_MEMORY_STORE_ID`, and `AGENT_MEMORY_API_KEY` in your environment or `.env`, then run:
-
-```sh
-npm run test:e2e:handoff
-```
-
-This live integration test builds and extracts the Claude MCPB and ChatGPT Desktop plugin archives. It writes a unique session event and long-term checkpoint through Claude's bundled MCP server, shuts that process down, then retrieves the exact event, searches for the checkpoint, and verifies `resume_context` through a separate ChatGPT plugin server process. Search indexing is allowed up to 60 seconds to become visible. Missing credentials fail the test rather than silently skipping it.
-
-Use a test store and an API key that permits reading, writing, and deleting test records. Each run uses a unique session and owner, preserves your configured namespace, and removes its session and checkpoint afterward. If automatic promotion is enabled, Redis may create additional derived memories; use a disposable store when testing that configuration.
-
-This tests the packaged MCP integrations against real Redis, without opening Claude or ChatGPT or testing model tool selection. It verifies explicit checkpoint persistence and retrieval; it does not wait for background promotion of conversation events into long-term memory. The regular `npm test` suite remains independent of live credentials.
+The end-to-end test checks that progress saved through the Claude package can be retrieved through the ChatGPT package. See [test setup, commands, and coverage](docs/handoff-workflow.md#test-the-claude-to-chatgpt-handoff).
 
 ## Security notes
 
