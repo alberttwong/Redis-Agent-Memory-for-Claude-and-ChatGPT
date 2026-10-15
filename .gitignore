@@ -1,6 +1,8 @@
 node_modules/
 dist/
 .env
+.mcp.json
+.mcp.native.json
 .env.*
 !.env.example
 outputs/

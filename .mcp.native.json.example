@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "redis-agent-memory": {
+      "url": "<MEMORY_URL>/v1/stores/<MEMORY_STORE_ID>/mcp",
+      "headers": {
+        "Authorization": "Bearer <MEMORY_KEY>"
+      }
+    }
+  }
+}
