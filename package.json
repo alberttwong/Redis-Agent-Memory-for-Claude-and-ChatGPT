@@ -29,6 +29,7 @@
     "capture:doctor:claude-desktop": "node dist/src/capture-cli.js doctor --claude-desktop",
     "capture:import:claude": "npm run build && node dist/src/capture-cli.js import-claude",
     "capture:import:chatgpt": "npm run build && node dist/src/capture-cli.js import-chatgpt",
+    "capture:watch-imports": "npm run build && node dist/src/capture-cli.js watch-imports",
     "capture:uninstall": "node dist/src/capture-cli.js uninstall",
     "capture:uninstall:claude-desktop": "node dist/src/capture-cli.js uninstall --claude-desktop",
     "mcpb:validate": "node scripts/validate-mcpb.mjs",

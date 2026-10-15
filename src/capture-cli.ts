@@ -2,7 +2,10 @@
 import { readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { execFileSync } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
+import { promisify } from "node:util";
+import { setTimeout as delay } from "node:timers/promises";
+import { ImportWatcher } from "./import-watch.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { captureConfigSchema, enqueue, flush, makeEntry, pendingCount, projectNamespace, scope, type CaptureTransport, type HookInput } from "./capture.js";
@@ -136,6 +139,7 @@ async function main() {
       "  flush      Retry queued writes",
       "  import-claude  Preview or import a Claude export",
       "  import-chatgpt Preview or import a ChatGPT data export",
+      "  watch-imports  Watch --directory PATH/{claude,chatgpt} for downloaded exports",
       "  uninstall  Remove only hooks installed by ram-capture",
       "  hook       Handle a Codex hook event on stdin",
       "",
@@ -153,6 +157,9 @@ async function main() {
       "  --limit N           Import at most N source messages",
       "  --preview N         Show N records in the dry-run preview (default 10)",
       "  --write             Queue and deliver records; omitted means dry run",
+      "  --directory PATH    Watch provider subfolders for exports (watch-imports)",
+      "  --interval N        Poll every N seconds (default 10, minimum 1)",
+      "  --once              Scan once and exit (watch-imports)",
       "",
     ].join("\n"));
     return;
@@ -220,10 +227,10 @@ async function main() {
     throw new Error("Claude Desktop best-effort capture has no local retry queue; retry the MCP tool call in Claude Desktop");
   }
 
-  if (mode === "import-claude" || mode === "import-chatgpt") {
+  if (mode === "import-claude" || mode === "import-chatgpt" || mode === "watch-imports") {
     const provider: ImportProvider = mode === "import-claude" ? "claude" : "chatgpt";
     const inputPath = option("--input");
-    if (!inputPath) throw new Error("--input PATH is required");
+    if (mode !== "watch-imports" && !inputPath) throw new Error("--input PATH is required");
     let defaults = captureConfigSchema.parse({});
     try {
       defaults = captureConfigSchema.parse(JSON.parse(await readFile(join(projectRoot, ".memory-capture.json"), "utf8")));
@@ -246,8 +253,60 @@ async function main() {
     if (!Number.isInteger(preview) || preview < 0 || preview > 100) {
       throw new Error("--preview must be an integer from 0 to 100");
     }
+    if (mode === "watch-imports") {
+      const directory = option("--directory");
+      if (!directory) throw new Error("--directory PATH is required");
+      const interval = Number(option("--interval") ?? "10");
+      if (!Number.isFinite(interval) || interval < 1 || interval > 86400) {
+        throw new Error("--interval must be between 1 and 86400 seconds");
+      }
+      const watcher = new ImportWatcher();
+      const controller = new AbortController();
+      const stop = () => controller.abort();
+      process.once("SIGINT", stop);
+      process.once("SIGTERM", stop);
+      const write = process.argv.includes("--write");
+      const after = dateOption("--after");
+      const before = dateOption("--before");
+      output({ watching: resolve(directory), dryRun: !write, ownerId, namespace });
+      try {
+        do {
+          const events = await watcher.scan({
+            directory: resolve(directory), stateDirectory: join(projectRoot, ".memory-capture", "imports"),
+            queue, ownerId, namespace, write, after, before,
+            conversation: option("--conversation"), limit, secrets: [process.env.AGENT_MEMORY_API_KEY ?? ""],
+          });
+          for (const event of events) output(event);
+          if (write && await pendingCount(queue)) {
+            try {
+              const args = [fileURLToPath(import.meta.url), "flush", "--project", projectRoot];
+              const settings = option("--settings");
+              if (settings) args.push("--settings", settings);
+              const result = await promisify(execFile)(process.execPath, args, { timeout: 30000 });
+              const delivery = JSON.parse(result.stdout);
+              output({ delivery: delivery.pending ? "pending" : "complete", ...delivery });
+              if (delivery.pending && process.argv.includes("--once")) process.exitCode = 1;
+            } catch {
+              output({ delivery: "pending", pending: await pendingCount(queue) });
+              if (process.argv.includes("--once")) process.exitCode = 1;
+            }
+          }
+          if (process.argv.includes("--once")) {
+            if (events.some(event => event.status === "error")) process.exitCode = 1;
+            break;
+          }
+          await delay(interval * 1000, undefined, { signal: controller.signal }).catch(error => {
+            if (error.name !== "AbortError") throw error;
+          });
+        } while (!controller.signal.aborted);
+      } finally {
+        process.removeListener("SIGINT", stop);
+        process.removeListener("SIGTERM", stop);
+      }
+      return;
+    }
     const planner = provider === "claude" ? planClaudeImport : planChatGptImport;
-    const plan = await planner(resolve(inputPath), {
+    const plan = await planner(resolve(inputPath!), {
       ownerId,
       namespace,
       after: dateOption("--after"),
