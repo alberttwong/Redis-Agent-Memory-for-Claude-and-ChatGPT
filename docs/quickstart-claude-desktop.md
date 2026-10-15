@@ -4,6 +4,28 @@
 
 Use the MCPB desktop extension to give Claude explicit Redis memory tools. Claude Desktop can recall context, append important turns, and save handoff checkpoints. Saving is model-directed and best-effort because ordinary Claude Desktop chats do not expose passive prompt and response hooks.
 
+## Install through Add marketplace
+
+For Claude Cowork or Claude Code, add this repository as a plugin marketplace:
+
+1. In Claude Desktop, open **Customize → Plugins → Add marketplace**.
+2. Enter `https://github.com/alberttwong/redis-agent-memory-mcp` and select **Sync**.
+3. Install **Redis Agent Memory** from the marketplace.
+4. Configure the bundled memory server with your Redis URL, store ID, and API key when prompted. Keep credentials in the configuration dialog rather than chat.
+5. Start a new supported session and ask Claude to check memory health.
+
+The marketplace plugin references the versioned MCPB release bundle and includes a save/resume workflow skill. It does not require building this repository. The host must support MCPB references in plugin manifests and allow downloads from GitHub Releases.
+
+For Claude Code, you can also install with:
+
+```text
+/plugin install redis-agent-memory --marketplace alberttwong/redis-agent-memory-mcp
+```
+
+A plugin's local MCP server runs in **Cowork and Claude Code**. For ordinary **Claude Desktop Chat**, install the desktop extension using the steps below. See [Claude's explanation of plugin and connector availability](https://support.claude.com/en/articles/11725091-when-to-use-desktop-and-web-connectors).
+
+If **Add marketplace** reports “no manifest found at .claude-plugin/marketplace.json”, the selected repository revision does not contain the Claude marketplace catalog. Refresh the marketplace after updating to a revision that includes it. The ChatGPT marketplace at `.agents/plugins/marketplace.json` is a separate format.
+
 ## 1. Download the extension
 
 Open the [latest release](https://github.com/alberttwong/redis-agent-memory-mcp/releases/latest) and download the `redis-agent-memory-<version>.mcpb` file under **Assets**.

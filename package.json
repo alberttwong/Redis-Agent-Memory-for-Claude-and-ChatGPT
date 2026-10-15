@@ -40,7 +40,9 @@
     "plugin:test": "npm run plugin:validate && npm run plugin:build && node scripts/build-chatgpt-plugin.mjs --remote-url https://memory.example.test/mcp --output build/redis-agent-memory-chatgpt-remote-test.zip && node scripts/smoke-chatgpt-plugin.mjs",
     "prepack": "npm run build",
     "test": "npm run build && node --test dist/**/*.test.js",
-    "test:e2e:handoff": "npm run mcpb:build && npm run plugin:build && node --test integration/claude-chatgpt.test.mjs"
+    "test:e2e:handoff": "npm run mcpb:build && npm run plugin:build && node --test integration/claude-chatgpt.test.mjs",
+    "claude-plugin:validate": "node scripts/validate-claude-marketplace.mjs",
+    "claude-plugin:test": "npm run claude-plugin:validate && npm run mcpb:test"
   },
   "engines": {
     "node": ">=20.12"
