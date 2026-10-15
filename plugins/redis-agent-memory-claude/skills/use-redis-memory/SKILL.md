@@ -5,10 +5,10 @@ description: Recall saved Redis Agent Memory project context and record progress
 
 # Use Redis Agent Memory
 
-Use the connected Redis memory tools. For continuing work, call `resume_context` with the task's existing, non-sensitive session ID before making changes. If the task cannot be identified, ask which saved task the user wants. Check recalled progress against the current files before continuing.
+Use the connected Redis memory tools. If they report that Redis is not configured, call `memory_setup` and give the user its local browser link. Wait for them to save settings there, then verify with `memory_health`. For continuing work, call `resume_context` with the task's existing, non-sensitive session ID before making changes. If the task cannot be identified, ask which saved task the user wants. Check recalled progress against the current files before continuing.
 
 Record important conversation events with `memory_append` when ordered history is useful. Save a `checkpoint_save` after material progress and before a handoff, including the goal, decisions, completed work, blockers, validation, and next steps. Include relevant file and branch information when working on code.
 
 Saving is model-directed. Do not claim that every prompt or response is captured automatically.
 
-If the tools are unavailable, explain that the bundled local server needs a supported Cowork or Claude Code session and configured Redis credentials. For ordinary Claude Desktop Chat, direct the user to the project's MCPB extension installation guide at https://github.com/alberttwong/redis-agent-memory-mcp/blob/main/docs/quickstart-claude-desktop.md. Do not ask the user to paste an API key into chat.
+If the tools are unavailable, explain that the bundled local server needs a supported Cowork or Claude Code session and configured Redis credentials. For the browser setup form, use a local Claude Code session on This computer. For ordinary Claude Desktop Chat, direct the user to the project's MCPB extension installation guide at https://github.com/alberttwong/redis-agent-memory-mcp/blob/main/docs/quickstart-claude-desktop.md. Do not ask the user to paste an API key into chat.

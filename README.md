@@ -2,7 +2,7 @@
 
 Give Claude Desktop and ChatGPT Desktop a durable project memory backed by Redis Agent Memory. The project keeps useful context available across new chats and agent handoffs, without making people repeat the project history every time.
 
-In a local Codex chat inside ChatGPT Desktop, submitted prompts and available final responses are saved automatically and retried after outages. For Claude Desktop, start with **Add marketplace** to install the memory plugin for Cowork and Claude Code. Ordinary Desktop Chat uses the MCPB extension. Both provide tools to search memory, record important work, and save checkpoints. Existing Claude and ChatGPT exports can also be imported into the same Redis memory store.
+In a local Codex chat inside ChatGPT Desktop, submitted prompts and available final responses are saved automatically and retried after outages. For Claude Desktop, start with **Add marketplace** and configure memory using the browser setup form in a local Claude Code session. Ordinary Desktop Chat uses the MCPB extension. Both provide tools to search memory, record important work, and save checkpoints. Existing Claude and ChatGPT exports can also be imported into the same Redis memory store.
 
 ## When to use it
 
@@ -14,7 +14,7 @@ In a local Codex chat inside ChatGPT Desktop, submitted prompts and available fi
 
 ## Choose a quickstart
 
-- [Claude Desktop quickstart](docs/quickstart-claude-desktop.md): use **Add marketplace** (default) for Cowork/Claude Code, or the MCPB extension for Desktop Chat, then verify Redis.
+- [Claude Desktop quickstart](docs/quickstart-claude-desktop.md): use **Add marketplace** (default), then the browser setup form in a local Claude Code session. For Desktop Chat, use the MCPB extension.
 - [ChatGPT Desktop quickstart](docs/quickstart-chatgpt-desktop.md): install the local plugin, enable automatic saving, and optionally import ChatGPT history.
 - [Manual quickstart](docs/technical-setup-and-operations.md): build and cli install and use the optional native or local bridge tools.
 

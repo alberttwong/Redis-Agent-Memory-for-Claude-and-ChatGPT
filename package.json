@@ -42,7 +42,8 @@
     "test": "npm run build && node --test dist/**/*.test.js",
     "test:e2e:handoff": "npm run mcpb:build && npm run plugin:build && node --test integration/claude-chatgpt.test.mjs",
     "claude-plugin:validate": "node scripts/validate-claude-marketplace.mjs",
-    "claude-plugin:test": "npm run claude-plugin:validate && npm run mcpb:test"
+    "claude-plugin:test": "npm run claude-plugin:validate && node scripts/build-claude-plugin.mjs --check && npm run build && node --test dist/test/memory-setup.test.js && node scripts/smoke-claude-plugin.mjs",
+    "claude-plugin:build": "node scripts/build-claude-plugin.mjs"
   },
   "engines": {
     "node": ">=20.12"
