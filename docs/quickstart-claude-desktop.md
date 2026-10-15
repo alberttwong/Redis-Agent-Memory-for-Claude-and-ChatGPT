@@ -4,30 +4,33 @@
 
 Use the MCPB desktop extension to give Claude explicit Redis memory tools. Claude Desktop can recall context, append important turns, and save handoff checkpoints. Saving is model-directed and best-effort because ordinary Claude Desktop chats do not expose passive prompt and response hooks.
 
-## 1. Build the extension
+## 1. Download the extension
 
-Install Node.js 20.12 or later, then run:
+Open the [latest release](https://github.com/alberttwong/redis-agent-memory-mcp/releases/latest) and download the `redis-agent-memory-<version>.mcpb` file under **Assets**.
 
-```sh
-git clone https://github.com/alberttwong/redis-agent-memory-mcp.git
-cd redis-agent-memory-mcp
-npm ci
-npm run mcpb:test
-```
-
-The extension is written to `build/redis-agent-memory-0.1.0.mcpb`.
+Claude Desktop supplies Node.js, so installing the extension does not require cloning this repository, npm, or a separate Node.js installation. For a development build, see [Build from source](claude-desktop.md#build-from-source).
 
 ## 2. Install it in Claude Desktop
 
 1. Open **Settings → Extensions**.
 2. Select **Advanced settings → Install Extension…**.
-3. Choose `build/redis-agent-memory-0.1.0.mcpb`.
+3. Choose the downloaded `.mcpb` file.
 4. Enter the Redis Agent Memory URL, store ID, and API key.
 5. Enable the extension in a conversation.
 
 Ask Claude to call `memory_health`. A successful response confirms the live Redis connection.
 
 ## 3. Import existing Claude memory or conversations
+
+Importing history is optional and uses the repository's CLI. Install Node.js 20.12 or later and prepare a local checkout:
+
+```sh
+git clone https://github.com/alberttwong/redis-agent-memory-mcp.git
+cd redis-agent-memory-mcp
+npm ci
+```
+
+Copy [`.env.example`](../.env.example) to `.env` and fill in the same Redis URL, store ID, and API key used by the extension. Set the owner and namespace to match the extension if you configured them.
 
 Open Claude's memory settings and copy the editable memory into a Markdown or text file, or request a Claude data-export ZIP for conversation history. Preview the import first:
 
