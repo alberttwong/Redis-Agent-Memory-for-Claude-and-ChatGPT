@@ -10,6 +10,32 @@ The local profile bundles the stdio MCP server, project setup skill, and lifecyc
 
 For installation, download `redis-agent-memory-chatgpt-desktop-<version>.zip` from the [latest release](https://github.com/alberttwong/redis-agent-memory-mcp/releases/latest) and follow the [ChatGPT Desktop quickstart](quickstart-chatgpt-desktop.md). The desktop ZIP includes a local marketplace at `.agents/plugins/marketplace.json` and the bundled plugin under `plugins/redis-agent-memory/`. The plugin contains the server and capture CLI with their JavaScript dependencies bundled. Node.js 20.12 or later is required at runtime; npm and compilation are not required for release installation.
 
+### Manual commands for the release package
+
+The quickstart uses the plugin's `setup-redis-memory` skill. If you prefer terminal commands, replace `/path/to/plugin-folder` with the extracted desktop ZIP folder and `/path/to/your-project` with the project you want to remember. Quote paths, especially when they contain spaces.
+
+Create the project's configuration, then fill in its `.env` locally:
+
+```sh
+node "/path/to/plugin-folder/plugins/redis-agent-memory/server/capture-cli.js" configure --project "/path/to/your-project"
+```
+
+Check configuration, inspect capture status, or retry pending writes:
+
+```sh
+node "/path/to/plugin-folder/plugins/redis-agent-memory/server/capture-cli.js" doctor --plugin --project "/path/to/your-project"
+node "/path/to/plugin-folder/plugins/redis-agent-memory/server/capture-cli.js" status --project "/path/to/your-project"
+node "/path/to/plugin-folder/plugins/redis-agent-memory/server/capture-cli.js" flush --project "/path/to/your-project"
+```
+
+Preview a ChatGPT history import. Review the output before rerunning with `--write`:
+
+```sh
+node "/path/to/plugin-folder/plugins/redis-agent-memory/server/capture-cli.js" import-chatgpt --project "/path/to/your-project" --input "/path/to/chatgpt-export.zip"
+```
+
+See [Import existing memories](importing-memories.md) for accepted files and filters.
+
 ### Build from source
 
 For development, clone this repository, install Node.js 20.12 or later, and run from the repository root:

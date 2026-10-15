@@ -2,29 +2,31 @@
 
 [Back to README](../README.md)
 
-Use a local Codex chat inside the ChatGPT desktop app for default-enabled automatic saving. Project hooks queue submitted prompts and available final responses before sending them to Redis, then recall recent project context when a new local session starts.
+Install Redis Agent Memory to save prompts and available final responses from local Codex chats and recall project context in later chats. This setup works in **Codex → This computer** in ChatGPT Desktop. It requires Node.js 20.12 or later and a Redis Agent Memory service URL, store ID, and API key.
 
-## 1. Download and install the desktop plugin
+You will use two folders:
 
-You need Node.js 20.12 or later to run the plugin.
+| Folder | Purpose |
+| --- | --- |
+| Plugin folder | The extracted download. Open it once to install the plugin. |
+| Your project folder | The project whose chats you want to remember. Configure memory here and use it for everyday work. |
 
-1. Download `redis-agent-memory-chatgpt-desktop-<version>.zip` from the [latest release](https://github.com/alberttwong/redis-agent-memory-mcp/releases/latest).
-2. Extract it into a permanent folder, such as `redis-agent-memory`. Keep the entire extracted folder, including the hidden `.agents` directory.
-3. Open that folder as a local Codex project in ChatGPT Desktop, then restart the app.
-4. In the **Plugins Directory**, select **Redis Agent Memory local plugins** and install **Redis Agent Memory**.
-5. Review and trust its lifecycle hooks.
+## 1. Install the plugin
 
-The ZIP includes the plugin and its marketplace configuration. No Git clone, npm install, or source build is required. For development, see [Build from source](chatgpt-plugin.md#build-from-source).
+1. Open the [latest release](https://github.com/alberttwong/redis-agent-memory-mcp/releases/latest) and download **`redis-agent-memory-chatgpt-desktop-<version>.zip`** from **Assets**.
+2. Extract the ZIP into a permanent folder. Keep all its contents, including the hidden `.agents` folder.
+3. In ChatGPT Desktop, select **Codex** and open the extracted folder using **This computer**. Restart the app with that project open.
+4. Open the **Plugins Directory**, choose **Redis Agent Memory local plugins**, and install **Redis Agent Memory**. Review and trust its lifecycle hooks when prompted.
 
-## 2. Configure automatic saving in the project
+After installation, switch to your own project. You do not need to work inside the plugin folder.
 
-Open the project you want to remember as a local Codex chat. Ask it to use the plugin's `setup-redis-memory` skill for that project. The skill creates the capture configuration and private `.env` template without installing duplicate project hooks. For manual setup, replace `/path/to/redis-agent-memory` with the extracted folder and `/path/to/your-project` with your project folder:
+## 2. Connect your project to Redis
 
-```sh
-node /path/to/redis-agent-memory/plugins/redis-agent-memory/server/capture-cli.js configure --project /path/to/your-project
-```
+Open **your project folder** in a new local Codex chat. Confirm **Redis Agent Memory** is enabled, then send:
 
-Add the Redis connection values to the generated `.env`:
+> Use the Redis Agent Memory plugin's setup-redis-memory skill to configure memory for this project.
+
+The skill creates a `.env` file in your project. Open that file locally and fill in these values:
 
 ```dotenv
 AGENT_MEMORY_BASE_URL=https://your-agent-memory-endpoint
@@ -32,51 +34,36 @@ AGENT_MEMORY_STORE_ID=your-store-id
 AGENT_MEMORY_API_KEY=your-store-api-key
 ```
 
-Confirm the local files and credentials are configured by asking the skill to run its plugin-aware doctor command, or run:
+Keep the API key in `.env`; do not paste it into chat. Then send:
 
-```sh
-node /path/to/redis-agent-memory/plugins/redis-agent-memory/server/capture-cli.js doctor --plugin --project /path/to/your-project
-```
+> Use setup-redis-memory to check this project's configuration with the plugin-aware doctor command.
 
-## 3. Open the local Codex project
+Resolve any reported setup issues before continuing. Repeat this step for each project you want to remember.
 
-1. Open the ChatGPT desktop app and select **Codex** from the ChatGPT dropdown.
-2. Open the project you configured and choose **This computer** for a local chat.
-3. Confirm the Redis Agent Memory plugin is enabled and its hook is trusted.
-4. Start a new local chat.
+## 3. Start a fresh chat and verify saving
 
-Automatic saving and startup recall are now active for ordinary supported turns. Plugin hooks must be trusted again if their exact definition changes. Cloud-orchestrated Work chats do not load this local hook configuration, even if they can access your computer.
+Start a **new local Codex chat in your project** after saving `.env` and trusting the plugin hooks. Send an ordinary prompt, then ask:
 
-These steps follow the current [Codex environment](https://learn.chatgpt.com/docs/environments/modes) and [hooks](https://learn.chatgpt.com/docs/hooks) behavior documented by OpenAI.
+> Use setup-redis-memory to check this project's capture status and retry any pending writes.
 
-## 4. Import existing ChatGPT conversations
+Check your Redis memory store for the new prompt to confirm delivery. A pending count of zero alone does not prove that a prompt was captured.
 
-In ChatGPT, request a data export from **Settings → Data controls → Export data**. When the ZIP arrives, preview it with the bundled CLI, using the same folder paths as step 2:
+Future supported turns in this project save automatically, and new local chats recall recent project context. Cloud-orchestrated Work chats do not run these local plugin hooks. If a plugin update changes its hook definitions, review and trust them again.
 
-```sh
-node /path/to/redis-agent-memory/plugins/redis-agent-memory/server/capture-cli.js import-chatgpt --project /path/to/your-project --input /path/to/chatgpt-export.zip
-```
+## Optional: Import older conversations
 
-Review the owner, namespace, record count, and sample records. Then queue and deliver it:
+Request a ChatGPT export from **Settings → Data controls → Export data**. Once you have the ZIP on your computer, ask the plugin's `setup-redis-memory` skill to **preview** an import of that local file into your configured project. Review the preview, then ask it to import the records if they look correct.
 
-```sh
-node /path/to/redis-agent-memory/plugins/redis-agent-memory/server/capture-cli.js import-chatgpt --project /path/to/your-project --input /path/to/chatgpt-export.zip --write
-```
+See [Import existing memories](importing-memories.md) for accepted files and filters.
 
-The importer reads `conversations.json` and numbered conversation JSON files, preserves roles and timestamps, and uses deterministic IDs for safe retries. Add `--conversation`, `--after`, `--before`, or `--limit` to narrow a large export.
+## 4. Uninstall
 
-For account-level saved memory, copy the editable memory into a Markdown or text file and pass that file to the same command. The provider's export format is not guaranteed to include saved memory as a separate stable file, so preview the parsed records before using `--write`.
-
-## 5. Uninstall the plugin
-
-1. Open the ChatGPT Desktop **Plugins Directory** and find **Redis Agent Memory** in the installed plugins.
+1. Open the **Plugins Directory** and find **Redis Agent Memory** in your installed plugins.
 2. Open its details and select **Uninstall plugin**.
 3. Start a new local chat.
 
-Removing the plugin disables its lifecycle hooks. Project configuration, `.env` credentials, queued writes, and memories already stored in Redis are preserved. To pause automatic saving for one project while keeping the plugin installed, set `enabled` to `false` in that project's `.memory-capture.json`.
+Uninstalling stops the plugin's hooks. It preserves memories in Redis, project configuration, `.env`, and queued writes. To pause saving for just one project, set `enabled` to `false` in that project's `.memory-capture.json` instead.
 
-If you previously installed separate project hooks with `npm run capture:install`, remove those hooks from the affected project using the [project-hook uninstall instructions](automatic-saving-operations.md#remove-automatic-saving). Plugin removal does not remove separately installed project hooks. See OpenAI's [plugin removal documentation](https://learn.chatgpt.com/docs/plugins#remove-a-plugin) for the desktop removal flow.
+If you also installed project hooks separately, follow [Remove automatic saving](automatic-saving-operations.md#remove-automatic-saving) to remove them.
 
-For status, retries, identity, and removal, see [Automatic saving operations](automatic-saving-operations.md). For all import flags and security behavior, see [Import existing memories](importing-memories.md).
-
-For package contents, the public hook-free profile, and removal semantics, see [ChatGPT plugin packaging](chatgpt-plugin.md).
+For manual commands and source builds, see [ChatGPT plugin packaging](chatgpt-plugin.md). For retries and identity settings, see [Automatic saving operations](automatic-saving-operations.md). The installation flow follows OpenAI's [local plugin setup](https://developers.openai.com/plugins/build/plugins#install-a-local-plugin-manually) and [plugin removal](https://learn.chatgpt.com/docs/plugins#remove-a-plugin) documentation.
