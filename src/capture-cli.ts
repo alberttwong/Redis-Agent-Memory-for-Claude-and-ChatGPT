@@ -16,6 +16,7 @@ import {
 } from "./claude-desktop-install.js";
 import { loadMemoryEnvironment, shareProjectSettings } from "./shared-settings.js";
 import { defaultOwnerId } from "./identity.js";
+import { recallPrompt } from "./prompt-recall.js";
 
 const mode = process.argv[2] ?? "hook";
 const source = process.argv[3] ?? "codex";
@@ -332,7 +333,27 @@ async function main() {
         return result.memories ?? [];
       },
     };
-    const result = await flush(queue, storage);
+    let promptContext = "";
+    if (input?.hook_event_name === "UserPromptSubmit") {
+      try {
+        // Search before flushing: the prompt just enqueued must not match itself.
+        promptContext = await recallPrompt(config, scope(config, projectRoot, source, input), input.prompt,
+          async args => {
+            const result = unpack(await client.callTool({ name: "search_long_term_memory", arguments: args },
+              undefined, { timeout: 6000 }));
+            return result.memories ?? [];
+          }, [process.env.AGENT_MEMORY_API_KEY ?? ""]);
+      } catch {
+        console.error("Redis recall: relevant memories are unavailable; continuing without recalled context.");
+      }
+    }
+    let result: Awaited<ReturnType<typeof flush>> = { sent: 0, pending: 0 };
+    try { result = await flush(queue, storage); }
+    catch (error) {
+      if (mode !== "hook") throw error;
+      // A delivery outage must not discard context already retrieved for this turn.
+      console.error("Redis capture: delivery incomplete; queued messages will be retried.");
+    }
     if (importSummary) { output({ ...importSummary, ...result }); return; }
     if (mode === "flush") { output(result); return; }
     if (input?.hook_event_name === "SessionStart") {
@@ -346,7 +367,8 @@ async function main() {
       const resolved = scope(config, projectRoot, source, input);
       output({hookSpecificOutput: {hookEventName: "UserPromptSubmit", additionalContext:
         `Redis capture scope: owner_id=${resolved.owner}, namespace=${resolved.namespace}, session_id=${resolved.session}. `
-        + "Use owner and namespace filters for recall. Hooks save prompts and final responses automatically; no identifiers are needed from the user."}});
+        + "Use owner and namespace filters for recall. Hooks save prompts and final responses automatically; no identifiers are needed from the user."
+        + promptContext}});
     } else output({});
   } finally { await client.close(); }
 }

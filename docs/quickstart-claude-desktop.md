@@ -109,3 +109,9 @@ Uninstalling the plugin or extension does not delete memories stored in Redis or
 The MCPB extension cannot silently observe every Claude Desktop prompt and response. Ask Claude to save substantive work and checkpoints, or use a client with lifecycle hooks when every supported turn must be captured automatically.
 
 For status, CLI fallback, removal, and packaging details, see [Claude Desktop setup and limitations](claude-desktop.md). For all import flags and security behavior, see [Import existing memories](importing-memories.md).
+
+## Automatic context for each prompt
+
+After project setup and hook activation, each submitted prompt also triggers a search for relevant memories in your owner's project scope before the LLM processes it. Matches are supplied as historical context automatically; you do not need to request a memory search each time. This requires local ChatGPT plugin v0.1.5+ or Claude plugin v0.1.6+, followed by a fresh local session. If Redis is unavailable, the chat continues and pending saves remain queued.
+
+To keep automatic saving while disabling these searches, set `promptRecall: false` in `.memory-capture.json`. See [retrieval limits, relevance threshold, and behavior](automatic-capture.md#relevant-memories-before-each-prompt).

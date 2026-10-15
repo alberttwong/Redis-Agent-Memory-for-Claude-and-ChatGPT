@@ -20,6 +20,8 @@ In a local Codex chat inside ChatGPT Desktop, submitted prompts and available fi
 
 Claude Desktop currently uses the plugin's browser form for Redis credentials because native marketplace configuration has an [upstream issue](https://github.com/anthropics/claude-code/issues/95683). Follow the quickstart's setup steps. [Project issue #31](https://github.com/alberttwong/redis-agent-memory-mcp/issues/31) tracks returning to native configuration after a Desktop fix is verified.
 
+Configured local Claude Code and Codex sessions also search for relevant owner- and project-scoped memories before each prompt is processed. See [automatic retrieval and controls](docs/automatic-capture.md#relevant-memories-before-each-prompt).
+
 ## What is automatic
 
 | Client or workflow | Memory behavior | Retry queue |
