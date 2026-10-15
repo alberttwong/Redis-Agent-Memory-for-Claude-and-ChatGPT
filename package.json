@@ -25,9 +25,11 @@
     "capture:install:claude-desktop": "npm run build && node dist/src/capture-cli.js install --claude-desktop",
     "capture:doctor": "node dist/src/capture-cli.js doctor",
     "capture:doctor:claude-desktop": "node dist/src/capture-cli.js doctor --claude-desktop",
+    "capture:import:claude": "npm run build && node dist/src/capture-cli.js import-claude",
+    "capture:import:chatgpt": "npm run build && node dist/src/capture-cli.js import-chatgpt",
     "capture:uninstall": "node dist/src/capture-cli.js uninstall",
     "capture:uninstall:claude-desktop": "node dist/src/capture-cli.js uninstall --claude-desktop",
-    "mcpb:validate": "mcpb validate mcpb/manifest.json",
+    "mcpb:validate": "node scripts/validate-mcpb.mjs",
     "mcpb:build": "node scripts/build-mcpb.mjs",
     "mcpb:test": "npm run mcpb:validate && npm run mcpb:build && node scripts/smoke-mcpb.mjs",
     "prepack": "npm run build",
@@ -39,10 +41,10 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.32.1",
     "@redis-iris/agent-memory": "0.3.1",
+    "fflate": "0.8.3",
     "zod": "4.6.7"
   },
   "devDependencies": {
-    "@anthropic-ai/mcpb": "2.1.2",
     "@types/node": "^24.0.0",
     "esbuild": "0.28.2",
     "typescript": "7.0.2"

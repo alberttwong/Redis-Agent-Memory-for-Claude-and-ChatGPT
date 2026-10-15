@@ -1,13 +1,18 @@
 import assert from "node:assert/strict";
-import { access } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { unzipSync } from "fflate";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const server = join(root, "build", "mcpb", "server", "index.js");
 await access(server);
+const packageDocument = JSON.parse(await readFile(join(root, "package.json"), "utf8"));
+const archive = unzipSync(await readFile(join(root, "build", `redis-agent-memory-${packageDocument.version}.mcpb`)));
+assert.deepEqual(Object.keys(archive).sort(), ["README.md", "manifest.json", "server/index.js"]);
+assert.equal(JSON.parse(new TextDecoder().decode(archive["manifest.json"])).name, "redis-agent-memory");
 
 const transport = new StdioClientTransport({
   command: process.execPath,
