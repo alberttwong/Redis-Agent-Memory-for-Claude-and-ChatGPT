@@ -48,6 +48,14 @@ npm run capture:import:claude -- --input /path/to/claude-export.zip --write
 
 The write uses deterministic IDs and the local retry queue, so rerunning the same import does not duplicate records that are still pending. Add `--conversation`, `--after`, `--before`, or `--limit` to narrow a large export.
 
+## 4. Uninstall the extension
+
+1. Open Claude Desktop **Settings → Extensions**.
+2. Select **Redis Agent Memory** and uninstall the extension.
+3. Fully quit and reopen Claude Desktop.
+
+Uninstalling the extension does not delete memories stored in Redis or any local checkout and import queue you created. If you used the CLI fallback, follow the separate [CLI uninstall instructions](claude-desktop.md#uninstall).
+
 ## Important limitation
 
 The MCPB extension cannot silently observe every Claude Desktop prompt and response. Ask Claude to save substantive work and checkpoints, or use a client with lifecycle hooks when every supported turn must be captured automatically.
