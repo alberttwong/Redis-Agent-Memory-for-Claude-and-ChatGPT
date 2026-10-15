@@ -41,7 +41,16 @@ Automatic saving does not require agent-facing native MCP access. See [Optional 
 
 ## Claude Desktop
 
-Claude Desktop can install the local bridge from the command line for model-directed, best-effort saving:
+Build the one-click desktop extension:
+
+```sh
+npm ci
+npm run mcpb:test
+```
+
+In Claude Desktop, open **Settings → Extensions → Advanced settings → Install Extension…** and select `build/redis-agent-memory-0.1.0.mcpb`. Claude Desktop collects the Redis connection settings during installation and stores the API key through its secure configuration mechanism.
+
+The CLI installer remains available as a development fallback:
 
 ```sh
 npm run capture:install:claude-desktop

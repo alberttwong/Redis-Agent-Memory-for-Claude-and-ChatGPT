@@ -1,0 +1,112 @@
+{
+  "manifest_version": "0.3",
+  "name": "redis-agent-memory",
+  "display_name": "Redis Agent Memory",
+  "version": "0.1.0",
+  "description": "Recall project context, record session events, and save agent handoff checkpoints in Redis Agent Memory.",
+  "author": {
+    "name": "Albert Wong",
+    "url": "https://github.com/alberttwong"
+  },
+  "homepage": "https://github.com/alberttwong/redis-agent-memory-mcp",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/alberttwong/redis-agent-memory-mcp.git"
+  },
+  "server": {
+    "type": "node",
+    "entry_point": "server/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/server/index.js"],
+      "env": {
+        "AGENT_MEMORY_BASE_URL": "${user_config.base_url}",
+        "AGENT_MEMORY_STORE_ID": "${user_config.store_id}",
+        "AGENT_MEMORY_API_KEY": "${user_config.api_key}",
+        "AGENT_MEMORY_OWNER_ID": "${user_config.owner_id}",
+        "AGENT_MEMORY_NAMESPACE_ID": "${user_config.namespace_id}",
+        "AGENT_MEMORY_NAMESPACE": "${user_config.namespace}",
+        "AGENT_MEMORY_AGENT_ID": "${user_config.agent_id}"
+      }
+    }
+  },
+  "user_config": {
+    "base_url": {
+      "type": "string",
+      "title": "Redis Agent Memory URL",
+      "description": "HTTPS base URL for the Redis Agent Memory service.",
+      "required": true
+    },
+    "store_id": {
+      "type": "string",
+      "title": "Store ID",
+      "description": "Redis Agent Memory store identifier.",
+      "required": true
+    },
+    "api_key": {
+      "type": "string",
+      "title": "Store API key",
+      "description": "API key for the selected Redis Agent Memory store.",
+      "sensitive": true,
+      "required": true
+    },
+    "owner_id": {
+      "type": "string",
+      "title": "Owner ID",
+      "description": "Optional stable owner shared across computers. Leave blank to derive a local owner.",
+      "required": false
+    },
+    "namespace_id": {
+      "type": "string",
+      "title": "Namespace resource ID",
+      "description": "Optional Redis namespace resource ID. This takes precedence over the legacy namespace.",
+      "required": false
+    },
+    "namespace": {
+      "type": "string",
+      "title": "Legacy namespace",
+      "description": "Project namespace used when no namespace resource ID is supplied.",
+      "default": "claude-desktop",
+      "required": false
+    },
+    "agent_id": {
+      "type": "string",
+      "title": "Agent ID",
+      "description": "Actor ID used for assistant events.",
+      "default": "shared-agent",
+      "required": false
+    }
+  },
+  "tools": [
+    {
+      "name": "memory_health",
+      "description": "Check whether the configured Redis Agent Memory store is ready."
+    },
+    {
+      "name": "memory_append",
+      "description": "Append a user, assistant, or system event to ordered session memory."
+    },
+    {
+      "name": "memory_get_session",
+      "description": "Retrieve ordered events and an optional session summary."
+    },
+    {
+      "name": "memory_search",
+      "description": "Search owner- and namespace-scoped durable memories."
+    },
+    {
+      "name": "checkpoint_save",
+      "description": "Create or update the durable checkpoint for a task session."
+    },
+    {
+      "name": "resume_context",
+      "description": "Retrieve the checkpoint, session history, and related durable memories."
+    }
+  ],
+  "compatibility": {
+    "platforms": ["darwin", "win32"],
+    "runtimes": {
+      "node": ">=20.12"
+    }
+  }
+}

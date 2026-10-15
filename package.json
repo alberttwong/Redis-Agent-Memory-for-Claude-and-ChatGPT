@@ -7,6 +7,7 @@
   "files": [
     "dist/src/",
     "docs/",
+    "mcpb/",
     "scripts/",
     "README.md"
   ],
@@ -26,6 +27,9 @@
     "capture:doctor:claude-desktop": "node dist/src/capture-cli.js doctor --claude-desktop",
     "capture:uninstall": "node dist/src/capture-cli.js uninstall",
     "capture:uninstall:claude-desktop": "node dist/src/capture-cli.js uninstall --claude-desktop",
+    "mcpb:validate": "mcpb validate mcpb/manifest.json",
+    "mcpb:build": "node scripts/build-mcpb.mjs",
+    "mcpb:test": "npm run mcpb:validate && npm run mcpb:build && node scripts/smoke-mcpb.mjs",
     "prepack": "npm run build",
     "test": "npm run build && node --test dist/**/*.test.js"
   },
@@ -38,7 +42,9 @@
     "zod": "4.6.7"
   },
   "devDependencies": {
+    "@anthropic-ai/mcpb": "2.1.2",
     "@types/node": "^24.0.0",
+    "esbuild": "0.28.2",
     "typescript": "7.0.2"
   }
 }
