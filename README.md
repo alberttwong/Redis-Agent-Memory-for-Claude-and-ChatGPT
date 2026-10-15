@@ -2,6 +2,8 @@
 
 Share Redis Agent Memory between Claude Desktop, Claude Code, and Codex using Redis's native MCP endpoint. For standard long-term memory operations, connect directly to Redis without running this project's local server. This repository also includes an optional bridge for ordered session events and structured task checkpoints.
 
+**Want automatic saving?** The [automatic capture guide](docs/automatic-capture.md) installs project hooks for Codex and Claude Code. Prompts, available final responses, and recent-context recall use generated identifiers and per-user owner defaults, with a local retry queue. Ordinary Claude Desktop chat does not use Claude Code hooks.
+
 **Using Claude Desktop?** Follow [Claude Desktop: native connector](#claude-desktop-native-connector) below. For the local bridge, see [Claude Desktop: optional local bridge](#claude-desktop-optional-local-bridge).
 
 **Using Codex Desktop?** Follow [Codex Desktop: native MCP](#codex-desktop-native-mcp) below, or the [optional bridge setup](#4-connect-codex).
@@ -174,7 +176,7 @@ Each client launches its own local bridge process. Both processes use the same R
 
 `memory_append` writes session events. `checkpoint_save` writes or updates a deterministic long-term memory record for the task. `resume_context` fetches that checkpoint directly, retrieves session history, and searches for relevant long-term memories in parallel.
 
-The bridge records only the content agents explicitly send through its tools. It does not automatically capture every chat turn, detect exhausted credits, switch clients, or transfer a model's hidden reasoning. Use the included agent instruction snippets to establish a regular save-and-resume workflow, and share or synchronize the working tree separately.
+The MCP bridge itself records content agents send through its tools. The optional [capture hooks](docs/automatic-capture.md) additionally save submitted prompts and available final responses without tool calls by the model. Neither mechanism detects exhausted credits, switches clients, or transfers hidden reasoning. Share or synchronize the working tree separately.
 
 ## Optional bridge tools
 

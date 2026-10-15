@@ -11,10 +11,12 @@
     "build": "tsc -p tsconfig.json",
     "check": "tsc -p tsconfig.json --noEmit",
     "start": "node dist/src/index.js",
+    "capture:status": "zsh scripts/capture.sh status",
+    "capture:flush": "zsh scripts/capture.sh flush",
     "test": "npm run build && node --test dist/**/*.test.js"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=20.12"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.32.1",
