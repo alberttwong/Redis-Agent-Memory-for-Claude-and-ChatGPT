@@ -127,3 +127,14 @@ test("resume context returns exact checkpoint, session, and semantic recall", as
   assert.equal(packet.session.sessionId, "task-1");
   assert.equal(packet.recalled.items[0].text, "remembered");
 });
+
+test("append and both checkpoint write branches sanitize text and nested metadata", async () => {
+  const client = new FakeClient();
+  const gateway = new MemoryGateway(client, config);
+  await gateway.append({ sessionId: "privacy-test", role: "USER", text: "password: hunter2", metadata: { nested: { password: "two\nlines" }, contact: "person@example.com" } });
+  await gateway.saveCheckpoint("privacy-test", { summary: "Contact person@example.com", notes: ["password: hunter2"] });
+  await gateway.saveCheckpoint("privacy-test", { summary: "Updated", notes: ["password: hunter2"] });
+  const sent = JSON.stringify([client.added, client.created, client.updated]);
+  for (const sensitive of ["hunter2", "two", "person@example.com"]) assert(!sent.includes(sensitive));
+  assert(sent.includes("[REDACTED]"));
+});

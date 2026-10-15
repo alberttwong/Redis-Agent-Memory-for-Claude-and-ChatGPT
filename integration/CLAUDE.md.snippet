@@ -5,3 +5,7 @@
 - Record important turns with `memory_append`; never store credentials, `.env` contents, access tokens, or sensitive personal data.
 - After meaningful progress and before the user switches agents, call `checkpoint_save` with the goal, completed work, next steps, blockers, repository path, branch, commit, and changed files.
 - Redis provides continuity, while the repository and Git history remain the source of truth for code.
+
+## Memory privacy guardrails
+
+Never store passwords, API keys, access tokens, private keys, raw environment files, or sensitive personal information (PII), including contact details, government IDs, financial details, and medical information. Apply this rule to memory text, metadata, checkpoints, imports, and identifiers. Omit sensitive details or use placeholders; when unsure, leave the detail out. Automatic redaction is a fallback and cannot detect all sensitive information.

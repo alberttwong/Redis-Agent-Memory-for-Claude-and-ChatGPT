@@ -1,3 +1,4 @@
+import { redactSensitiveText, sanitizeMemory } from "./privacy.js";
 import { createHash } from "node:crypto";
 import type {
   AddSessionEventRequestContent,
@@ -127,9 +128,9 @@ export class MemoryGateway {
         input.actorId ??
         (input.role === "USER" ? scope.ownerId : this.config.agentId),
       role,
-      content: [{ text: input.text }],
+      content: [{ text: redactSensitiveText(input.text, [this.config.apiKey]) }],
       createdAt: input.createdAt ?? new Date(),
-      metadata: input.metadata,
+      metadata: sanitizeMemory(input.metadata, [this.config.apiKey]),
       ...(scope.namespaceId
         ? { namespaceRef: { namespaceId: scope.namespaceId } }
         : scope.namespace
@@ -180,7 +181,7 @@ export class MemoryGateway {
   ) {
     const scope = this.scope(inputScope);
     const id = this.checkpointId(sessionId, inputScope);
-    const text = checkpointText(sessionId, checkpoint);
+    const text = checkpointText(sessionId, sanitizeMemory(checkpoint, [this.config.apiKey]));
     const common = {
       text,
       ownerId: scope.ownerId,

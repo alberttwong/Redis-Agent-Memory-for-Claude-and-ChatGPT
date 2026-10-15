@@ -45,3 +45,13 @@ test("recall honors result limits and returns no context for empty matches", asy
   assert.ok(context.includes("first") && !context.includes("second"));
   assert.equal(await recallPrompt(config, scope, "hello", async () => []), "");
 });
+
+test("prompt recall uses shared privacy guardrails for query and historical context", async () => {
+  const context = await recallPrompt(config, scope, "Fix login\npassword: hunter2\nContact person@example.com", async args => {
+    assert.ok(args.text.includes("Fix login"));
+    assert.ok(!args.text.includes("hunter2") && !args.text.includes("person@example.com"));
+    return [{ text: "Use backoff\nSSN: 123-45-6789\nContact person@example.com" }];
+  });
+  assert.ok(context.includes("Use backoff"));
+  assert.ok(!context.includes("123-45-6789") && !context.includes("person@example.com"));
+});

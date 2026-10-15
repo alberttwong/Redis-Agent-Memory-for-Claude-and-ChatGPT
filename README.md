@@ -22,6 +22,12 @@ Claude Desktop currently uses the plugin's browser form for Redis credentials be
 
 Configured local Claude Code and Codex sessions also search for relevant owner- and project-scoped memories before each prompt is processed. See [automatic retrieval and controls](docs/automatic-capture.md#relevant-memories-before-each-prompt).
 
+## Per-user installation, shared organization memory
+
+The plugin is installed per user. An entire company or organization can share one Redis Agent Memory instance; each user configures their installation to connect to the same service endpoint and memory store. A separate Redis Agent Memory instance is not required for every user.
+
+Use owner and namespace settings to organize personal, team, and project memories. Users who need to recall the same shared context must use matching owner and namespace settings. These retrieval filters do not replace service authentication or authorization; configure access according to your organization's requirements.
+
 ## What is automatic
 
 | Client or workflow | Memory behavior | Retry queue |
@@ -53,10 +59,12 @@ Redis Agent Memory provides:
 
 - Ordered session history for exact conversational context.
 - Long-term semantic memory across sessions.
+- Personal and shared namespaces: each user can have their own namespace, alongside shared namespaces for team, project, or organization context.
 - Automatic summarization and extraction of durable facts.
 - Semantic, keyword, and hybrid retrieval with metadata filters.
 - Python, TypeScript, and REST APIs.
 - Compatibility with any model provider or agent framework.
+- Memory privacy guardrails in this plugin: agents are instructed not to store passwords, credentials, or sensitive personal information (PII), with automatic redaction of recognized patterns before storage.
 
 See the [Redis Agent Memory documentation](https://redis.io/docs/latest/develop/ai/context-engine/agent-memory/) for the service's full capabilities. This bridge currently exposes semantic search through `memory_search`; keyword and hybrid search are not exposed as separate bridge tools. When automatic summarization is enabled, session retrieval can return a summary and recent events rather than every original turn; use `includeSummarisedEvents` when requesting the underlying session history.
 
@@ -152,5 +160,7 @@ The end-to-end test checks that progress saved through the Claude package can be
 
 - For the optional bridge, the store API key stays in `.env` and is never returned by a bridge tool. For native connections, use the client's secret storage or a local untracked configuration.
 - The optional bridge filters semantic search by `ownerId` and applies namespace filtering when configured. With native tools, explicitly pass the appropriate `owner_id` and `namespace` filters.
-- Redis semantic exclusions are advisory. Do not send secrets or sensitive transient data to session memory.
+- Never store passwords, credentials, or sensitive personal information (PII) in memory, metadata, checkpoints, or identifiers. Keep only the task context needed for future work, using placeholders for sensitive details.
+- The bridge, capture hooks, and importers redact configured credentials and recognized sensitive patterns before writes; capture also filters new local queue entries and rechecks queued text before upload. Pattern matching cannot detect every name, address, or sensitive context. Disable automatic capture for sensitive conversations. Native endpoints used outside this bridge do not run its filter. Existing stored records and older queue files are not retroactively cleaned.
+- Redis semantic exclusions are advisory and do not replace these privacy guardrails.
 - The optional bridge exposes no delete tool. The native endpoint does expose `delete_long_term_memories`; use it only for intended memory removals.
