@@ -11,8 +11,9 @@ For Claude Cowork or Claude Code, add this repository as a plugin marketplace:
 1. In Claude Desktop, open **Customize → Plugins → Add marketplace**.
 2. Enter `https://github.com/alberttwong/redis-agent-memory-mcp` and select **Sync**.
 3. Install **Redis Agent Memory** from the marketplace.
-4. Configure the bundled memory server with your Redis URL, store ID, and API key when prompted. Keep credentials in the configuration dialog rather than chat.
-5. Start a new supported session and ask Claude to check memory health.
+4. Start a new Cowork or Claude Code session with **Redis Agent Memory** enabled. Installation alone does not confirm a Redis connection.
+5. When the host presents the plugin configuration, enter your Redis URL, store ID, and API key there. The API key field is masked. Keep credentials out of chat.
+6. Ask Claude to call `memory_health`. Continue only after the connection succeeds.
 
 The marketplace plugin references the versioned MCPB release bundle and includes a save/resume workflow skill. It does not require building this repository. The host must support MCPB references in plugin manifests and allow downloads from GitHub Releases.
 
@@ -25,6 +26,14 @@ For Claude Code, you can also install with:
 A plugin's local MCP server runs in **Cowork and Claude Code**. For ordinary **Claude Desktop Chat**, install the desktop extension using the steps below. See [Claude's explanation of plugin and connector availability](https://support.claude.com/en/articles/11725091-when-to-use-desktop-and-web-connectors).
 
 If **Add marketplace** reports “no manifest found at .claude-plugin/marketplace.json”, the selected repository revision does not contain the Claude marketplace catalog. Refresh the marketplace after updating to a revision that includes it. The ChatGPT marketplace at `.agents/plugins/marketplace.json` is a separate format.
+
+## If installation did not ask for Redis credentials
+
+Marketplace plugin version **0.1.1** did not declare its configuration fields at the plugin level. Version **0.1.2** adds them, including a required, sensitive API key field. The server bundle remains pinned to v0.1.1 because this is a plugin configuration fix.
+
+Refresh the marketplace and update **Redis Agent Memory** to plugin v0.1.2 or later. Start a fresh supported session with the plugin enabled. In Claude Code, plugin options are requested when enabling the plugin; non-sensitive options also appear in `/config`. Installation or tool discovery alone does not verify that Redis credentials are configured.
+
+If your Desktop host still provides no configuration dialog, use the MCPB extension for ordinary Desktop Chat, or a Claude Code version that supports plugin `userConfig`. Do not paste the API key into a conversation as a workaround. See the [Claude plugin configuration reference](https://code.claude.com/docs/en/plugins-reference#user-configuration).
 
 ## 1. Download the extension
 

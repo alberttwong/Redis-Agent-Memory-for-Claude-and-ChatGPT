@@ -14,6 +14,10 @@ Claude Desktop can use the local Redis Agent Memory bridge for ordered session h
 
 The Claude Desktop bridge advertises instructions to recall prior work, append substantive turns, and save checkpoints without asking for memory identifiers. Those instructions improve the default workflow but cannot guarantee that the model calls a tool on every turn.
 
+## Marketplace credentials
+
+The marketplace plugin declares Redis connection fields through plugin `userConfig` starting in plugin v0.1.2. Configure them when enabling the plugin in a supported session, then call `memory_health` to verify connectivity. A successful marketplace installation alone does not confirm a Redis connection. See [configuration troubleshooting](quickstart-claude-desktop.md#if-installation-did-not-ask-for-redis-credentials).
+
 ## Recommended: MCPB desktop extension
 
 Download the `redis-agent-memory-<version>.mcpb` file from **Assets** on the [latest release](https://github.com/alberttwong/redis-agent-memory-mcp/releases/latest). In Claude Desktop:
