@@ -2,6 +2,68 @@
 
 This local MCP server gives Claude Code and Codex the same Redis Agent Memory store. It keeps ordered session events, searches durable memory, and maintains one canonical checkpoint per task session.
 
+## Use cases
+
+### Switch agents when credits run out
+
+Start a task in Claude Code and continue in Codex when you reach your Claude usage limit. Both clients connect to this bridge using the same Redis store, owner, namespace, and task session ID. Save checkpoints during the work so the next agent can retrieve the latest saved goal, decisions, completed work, blockers, and next steps with `resume_context`.
+
+Example prompts, using `checkout-retry-123` as the shared session ID:
+
+> **In Claude Code:** Work on checkout retries using memory session `checkout-retry-123`. Record important progress and save a checkpoint after each milestone, including the repository path, branch, changed files, test results, and next steps.
+
+> **In Codex:** Call `resume_context` for session `checkout-retry-123` with query "checkout retries, decisions, tests, blockers, and next steps". Inspect the repository and current Git state, then continue from the latest checkpoint.
+
+Saving regularly matters: if a usage limit interrupts Claude before its next checkpoint, Codex can recover only what was already written to Redis and the shared working tree.
+
+### Resume after a break or a new chat
+
+Return to an unfinished feature or investigation without explaining the whole task again. Use the original session ID to retrieve its checkpoint, ordered conversation events, and any session summary returned by Redis. The next agent can establish what was tried and where to continue.
+
+### Recall decisions across related tasks
+
+Use `memory_search` to recall earlier architectural decisions, project constraints, or durable preferences before starting related work. For example, query "why did we choose exponential backoff for checkout retries?" within the same owner and project namespace. Relevant long-term memories can be retrieved across task sessions after Redis has extracted them.
+
+### Hand off an investigation between agents
+
+Have Claude Code investigate a failing test, record attempted fixes and findings, and save a checkpoint. Codex can retrieve that context and implement the next proposed step. Both agents need access to the relevant repository and files; memory records describe the work but do not transfer files or running processes.
+
+### Keep project context separate
+
+Configure a separate namespace for each project and use a distinct session ID for each task. Semantic recall includes the owner filter and, when configured, the namespace filter. This keeps unrelated project memories out of ordinary searches; these filters organize retrieval and do not replace service authentication or authorization.
+
+## Architecture
+
+```mermaid
+flowchart TD
+    Claude[Claude Code] -->|MCP over stdio| ClaudeBridge[Local bridge process]
+    Codex[Codex] -->|MCP over stdio| CodexBridge[Local bridge process]
+
+    subgraph Bridge[Same bridge implementation and Redis configuration]
+        ClaudeBridge
+        CodexBridge
+    end
+
+    ClaudeBridge -->|Official Redis SDK over HTTPS| RAM[Redis Agent Memory service]
+    CodexBridge -->|Official Redis SDK over HTTPS| RAM
+
+    subgraph Redis[Shared memory in Redis]
+        RAM --> Sessions[Session events and optional summary]
+        RAM --> Checkpoints[Canonical task checkpoint]
+        RAM --> Memories[Searchable long-term memories]
+        Sessions -.->|Background extraction when enabled| Memories
+    end
+
+    Claude -->|Read and edit files| Repo[Shared repository and Git state]
+    Codex -->|Read and edit files| Repo
+```
+
+Each client launches its own local bridge process. Both processes use the same Redis Agent Memory endpoint and store, with matching owner and namespace settings. A shared task session ID links the work across clients.
+
+`memory_append` writes session events. `checkpoint_save` writes or updates a deterministic long-term memory record for the task. `resume_context` fetches that checkpoint directly, retrieves session history, and searches for relevant long-term memories in parallel.
+
+The bridge records only the content agents explicitly send through its tools. It does not automatically capture every chat turn, detect exhausted credits, switch clients, or transfer a model's hidden reasoning. Use the included agent instruction snippets to establish a regular save-and-resume workflow, and share or synchronize the working tree separately.
+
 ## Tools
 
 - `memory_health` checks the configured Redis Agent Memory store.
