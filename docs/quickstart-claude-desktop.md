@@ -2,11 +2,11 @@
 
 [Back to README](../README.md)
 
-Use the MCPB desktop extension to give Claude explicit Redis memory tools. Claude Desktop can recall context, append important turns, and save handoff checkpoints. Saving is model-directed and best-effort because ordinary Claude Desktop chats do not expose passive prompt and response hooks.
+Use **Add marketplace** as the default installation option in Claude Desktop. The Redis Agent Memory plugin helps Claude recall project context, record important progress, and save handoff checkpoints. Saving is model-directed. The plugin's local memory server runs in Cowork and Claude Code; for ordinary Desktop Chat, use the [MCPB extension option](#alternative-mcpb-extension-for-desktop-chat).
 
-## Install through Add marketplace
+## 1. Install through Add marketplace (default)
 
-For Claude Cowork or Claude Code, add this repository as a plugin marketplace:
+Start in Claude Desktop and add this repository as a plugin marketplace:
 
 1. In Claude Desktop, open **Customize → Plugins → Add marketplace**.
 2. Enter `https://github.com/alberttwong/redis-agent-memory-mcp` and select **Sync**.
@@ -35,13 +35,17 @@ Refresh the marketplace and update **Redis Agent Memory** to plugin v0.1.2 or la
 
 If your Desktop host still provides no configuration dialog, use the MCPB extension for ordinary Desktop Chat, or a Claude Code version that supports plugin `userConfig`. Do not paste the API key into a conversation as a workaround. See the [Claude plugin configuration reference](https://code.claude.com/docs/en/plugins-reference#user-configuration).
 
-## 1. Download the extension
+## Alternative: MCPB extension for Desktop Chat
+
+Use this option when you want the memory tools in ordinary Claude Desktop Chat. The marketplace installation above is the default for Cowork and Claude Code.
+
+### Download the extension
 
 Open the [latest release](https://github.com/alberttwong/redis-agent-memory-mcp/releases/latest) and download the `redis-agent-memory-<version>.mcpb` file under **Assets**.
 
 Claude Desktop supplies Node.js, so installing the extension does not require cloning this repository, npm, or a separate Node.js installation. For a development build, see [Build from source](claude-desktop.md#build-from-source).
 
-## 2. Install it in Claude Desktop
+### Install the extension
 
 1. Open **Settings → Extensions**.
 2. Select **Advanced settings → Install Extension…**.
@@ -51,7 +55,7 @@ Claude Desktop supplies Node.js, so installing the extension does not require cl
 
 Ask Claude to call `memory_health`. A successful response confirms the live Redis connection.
 
-## 3. Import existing Claude memory or conversations
+## Optional: Import existing Claude memory or conversations
 
 Importing history is optional and uses the repository's CLI. Install Node.js 20.12 or later and prepare a local checkout:
 
@@ -61,7 +65,7 @@ cd redis-agent-memory-mcp
 npm ci
 ```
 
-Copy [`.env.example`](../.env.example) to `.env` and fill in the same Redis URL, store ID, and API key used by the extension. Set the owner and namespace to match the extension if you configured them.
+Copy [`.env.example`](../.env.example) to `.env` and fill in the same Redis URL, store ID, and API key used by your plugin or extension. Set the owner and namespace to match if you configured them.
 
 Open Claude's memory settings and copy the editable memory into a Markdown or text file, or request a Claude data-export ZIP for conversation history. Preview the import first:
 
@@ -79,13 +83,17 @@ npm run capture:import:claude -- --input /path/to/claude-export.zip --write
 
 The write uses deterministic IDs and the local retry queue, so rerunning the same import does not duplicate records that are still pending. Add `--conversation`, `--after`, `--before`, or `--limit` to narrow a large export.
 
-## 4. Uninstall the extension
+## Uninstall
+
+For the marketplace plugin, open **Customize → Plugins**, select **Redis Agent Memory**, and remove it.
+
+For the MCPB extension:
 
 1. Open Claude Desktop **Settings → Extensions**.
 2. Select **Redis Agent Memory** and uninstall the extension.
 3. Fully quit and reopen Claude Desktop.
 
-Uninstalling the extension does not delete memories stored in Redis or any local checkout and import queue you created. If you used the CLI fallback, follow the separate [CLI uninstall instructions](claude-desktop.md#uninstall).
+Uninstalling the plugin or extension does not delete memories stored in Redis or any local checkout and import queue you created. If you used the CLI fallback, follow the separate [CLI uninstall instructions](claude-desktop.md#uninstall).
 
 ## Important limitation
 
