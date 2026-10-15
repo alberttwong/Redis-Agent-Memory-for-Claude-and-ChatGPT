@@ -2,7 +2,7 @@
 
 [Back to README](../README.md)
 
-Claude Desktop can use the local Redis Agent Memory bridge for ordered session history, recall, and checkpoints. The installer makes the bridge available automatically, but saving remains **best-effort and model-directed**: ordinary Desktop Chat does not expose lifecycle hooks that let this project passively observe every prompt and response.
+Claude Desktop can use the local Redis Agent Memory bridge for ordered session history, recall, and checkpoints. The default installation route is **Customize → Plugins → Add marketplace** for Cowork and Claude Code. For ordinary Desktop Chat, use the MCPB extension. Saving remains **best-effort and model-directed**: ordinary Desktop Chat does not expose lifecycle hooks that let this project passively observe every prompt and response.
 
 ## Support matrix
 
@@ -10,11 +10,21 @@ Claude Desktop can use the local Redis Agent Memory bridge for ordered session h
 | --- | --- | --- | --- |
 | Local Codex project | `ram-capture install` | Guaranteed for supported, trusted hook events | Yes |
 | Claude Desktop Chat | `.mcpb` extension; CLI fallback available | Best-effort MCP tool calls selected by the model | No |
-| Claude Code | MCP bridge or native connector | Explicit or model-directed MCP tool calls | No |
+| Claude Cowork | Add marketplace plugin | Best-effort MCP tool calls selected by the model | No |
+| Claude Code | Marketplace plugin, MCP bridge, or native connector | Explicit or model-directed MCP tool calls | No |
 
 The Claude Desktop bridge advertises instructions to recall prior work, append substantive turns, and save checkpoints without asking for memory identifiers. Those instructions improve the default workflow but cannot guarantee that the model calls a tool on every turn.
 
-## Recommended: MCPB desktop extension
+## Default: Add marketplace
+
+1. In Claude Desktop, open **Customize → Plugins → Add marketplace**.
+2. Enter `https://github.com/alberttwong/redis-agent-memory-mcp` and select **Sync**.
+3. Install **Redis Agent Memory** and configure the bundled server when prompted.
+4. Start a new Cowork or Claude Code session and ask Claude to check memory health.
+
+See the [Claude Desktop quickstart](quickstart-claude-desktop.md) for the full walkthrough. The plugin references the versioned release bundle, so a local source build is unnecessary. Its local MCP server runs in Cowork and Claude Code. For ordinary Desktop Chat, use the extension below.
+
+## Alternative: MCPB desktop extension for Chat
 
 Download the `redis-agent-memory-<version>.mcpb` file from **Assets** on the [latest release](https://github.com/alberttwong/redis-agent-memory-mcp/releases/latest). In Claude Desktop:
 
