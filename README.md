@@ -29,7 +29,9 @@ Confirm the local setup without contacting Redis:
 npm run capture:doctor
 ```
 
-Open the repository in Codex and review/trust the hook definition when prompted. Codex requires that security review and normal installers cannot approve it silently. After trust is granted, saving and startup recall happen automatically on ordinary turns. Set `enabled` to `false` in `.memory-capture.json` to opt out.
+Open the repository in a local Codex session, then use `/hooks` to inspect and trust the installed hook definition. Codex requires that security review and normal installers cannot approve it silently. Trust is tied to the exact hook definition, so changed hooks must be reviewed again. Start a new local session after installation or trust approval; saving and startup recall then happen automatically on ordinary turns. Set `enabled` to `false` in `.memory-capture.json` to opt out.
+
+Local command hooks and plugin hooks do not run in cloud-orchestrated Work chats, even when those chats use local computer access. This automatic-saving workflow requires local-only Codex orchestration; enterprise deployments can use supported managed MCP hooks instead. See the [official Codex hooks documentation](https://learn.chatgpt.com/docs/hooks) for current support boundaries.
 
 For another repository, run `ram-capture install --project /absolute/path/to/project`; see the [automatic capture guide](docs/automatic-capture.md) for installation, identity, retry, and uninstall details.
 
@@ -68,11 +70,11 @@ Remote connectors run from Anthropic's infrastructure. Our SDK test verified the
 
 ### Codex Desktop: native MCP
 
-Codex Desktop shares MCP configuration with the CLI on the same host.
+Codex Desktop shares MCP configuration with the CLI and IDE extension on the same host.
 
 This section adds agent-callable memory tools. Automatic saving remains active independently through the project hooks.
 
-Use the configuration-file route below; it does not depend on a Desktop settings menu being available.
+Codex Desktop now provides **Settings → MCP servers → Add server** for supported server and authentication flows. The Redis deployment verified by this project uses a static API-key `Authorization` header, so the explicit `config.toml` route below remains the clearest setup and does not depend on that UI exposing a custom-header field.
 
 1. Open your private `~/.codex/config.toml` in a text editor (create the file if needed).
 2. Merge this table, replacing any existing table with the same server name rather than duplicating it. Preserve unrelated configuration:
