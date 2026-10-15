@@ -2,6 +2,19 @@
 
 This local MCP server gives Claude Code and Codex the same Redis Agent Memory store. It keeps ordered session events, searches durable memory, and maintains one canonical checkpoint per task session.
 
+## Redis Agent Memory capabilities
+
+Redis Agent Memory provides:
+
+- Ordered session history for exact conversational context.
+- Long-term semantic memory across sessions.
+- Automatic summarization and extraction of durable facts.
+- Semantic, keyword, and hybrid retrieval with metadata filters.
+- Python, TypeScript, and REST APIs.
+- Compatibility with any model provider or agent framework.
+
+See the [Redis Agent Memory documentation](https://redis.io/docs/latest/develop/ai/context-engine/agent-memory/) for the service's full capabilities. This bridge currently exposes semantic search through `memory_search`; keyword and hybrid search are not exposed as separate bridge tools. When automatic summarization is enabled, session retrieval can return a summary and recent events rather than every original turn; use `includeSummarisedEvents` when requesting the underlying session history.
+
 ## Use cases
 
 ### Switch agents when credits run out
