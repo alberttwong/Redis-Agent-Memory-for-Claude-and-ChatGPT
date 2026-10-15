@@ -30,7 +30,9 @@ If **Add marketplace** reports “no manifest found at .claude-plugin/marketplac
 
 ## If installation did not ask for Redis credentials
 
-The connector's **Environment variables** panel is read-only. Installing the marketplace plugin does not mean the Redis connection is configured. Plugin v0.1.3 supplies its own browser setup form because Desktop hosts may not expose plugin `userConfig` fields.
+The connector's **Environment variables** panel is read-only. Installing the marketplace plugin does not mean the Redis connection is configured. This is a known upstream limitation: [Claude issue #95683](https://github.com/anthropics/claude-code/issues/95683) reports that marketplace MCPB credentials are not prompted for and that plugin `userConfig` and bundle `user_config` use separate configuration storage. [Claude issue #89749](https://github.com/anthropics/claude-code/issues/89749) covers the missing Desktop configuration UI.
+
+Plugin v0.1.3 provides a browser setup form as the current workaround. Use that form rather than trying to edit the connector's environment variables. We track replacing the workaround with native Desktop configuration in [project issue #31](https://github.com/alberttwong/redis-agent-memory-mcp/issues/31).
 
 Refresh the marketplace, update **Redis Agent Memory** to v0.1.3 or later, enable it, and start a new local session. Run `/redis-agent-memory:setup-redis-memory`. If `memory_setup` is absent, check that the updated plugin is enabled in that session before entering any credentials.
 

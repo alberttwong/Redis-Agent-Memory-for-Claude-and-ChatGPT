@@ -23,6 +23,14 @@ In a new local Claude Code session on **This computer**, run `/redis-agent-memor
 
 The Desktop connector details panel is read-only. Plugin `userConfig` declarations alone do not provide a verified Desktop setup dialog. See [configuration troubleshooting and storage details](quickstart-claude-desktop.md#if-installation-did-not-ask-for-redis-credentials). The browser setup flow requires the MCP server and browser to run on the same computer; it is not verified for isolated Cowork VMs.
 
+### Upstream limitation and planned migration
+
+[Claude issue #95683](https://github.com/anthropics/claude-code/issues/95683) documents missing marketplace MCPB credential prompts and separate storage for plugin options and bundle configuration. Copying the same fields into plugin `userConfig` does not reliably configure the bundle. [Claude issue #89749](https://github.com/anthropics/claude-code/issues/89749) reports the missing configuration controls in Desktop, and [our reproduction #102580](https://github.com/anthropics/claude-code/issues/102580) records the behavior observed with this project.
+
+Until the native Desktop flow is verified, use the browser setup form included in v0.1.3. It replaces the credential-entry step; `memory_health` still verifies the Redis connection afterward.
+
+[Project issue #31](https://github.com/alberttwong/redis-agent-memory-mcp/issues/31) tracks rewriting this integration after the upstream fix ships. Before removing the custom form and local credential-file handling, verify a fresh Desktop installation, credential entry and later editing, server startup, and a successful health check and save/resume workflow. A CLI-only fix or an upstream issue closure is insufficient. The migration must also provide a safe reconfiguration path for existing users. Cowork needs separate verification.
+
 ## Alternative: MCPB desktop extension for Chat
 
 Download the `redis-agent-memory-<version>.mcpb` file from **Assets** on the [latest release](https://github.com/alberttwong/redis-agent-memory-mcp/releases/latest). In Claude Desktop:
