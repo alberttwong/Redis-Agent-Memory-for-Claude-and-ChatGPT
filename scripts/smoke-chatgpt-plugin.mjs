@@ -11,6 +11,12 @@ const root = resolve(import.meta.dirname, "..");
 const packageDocument = JSON.parse(await readFile(join(root, "package.json"), "utf8"));
 const localArchive = unzipSync(await readFile(join(root, "build", `redis-agent-memory-chatgpt-local-${packageDocument.version}.zip`)));
 const remoteArchive = unzipSync(await readFile(join(root, "build", "redis-agent-memory-chatgpt-remote-test.zip")));
+const desktopArchive = unzipSync(await readFile(join(root, "build", `redis-agent-memory-chatgpt-desktop-${packageDocument.version}.zip`)));
+const desktopMarketplace = JSON.parse(new TextDecoder().decode(desktopArchive[".agents/plugins/marketplace.json"]));
+const desktopPluginPath = desktopMarketplace.plugins[0].source.path.replace(/^\.\//, "");
+for (const [name, contents] of Object.entries(localArchive)) {
+  assert.deepEqual(desktopArchive[`${desktopPluginPath}/${name}`], contents, `Desktop marketplace plugin is missing or differs: ${name}`);
+}
 
 for (const name of ["plugin.json", "package.json", "mcp.json", "hooks/hooks.json", "server/index.js", "server/capture-cli.js", "skills/setup-redis-memory/SKILL.md"]) {
   assert(localArchive[name], `Local plugin is missing ${name}`);
@@ -24,12 +30,12 @@ assert.equal(
 const installed = await mkdtemp(join(tmpdir(), "ram-plugin-installed-"));
 const project = await mkdtemp(join(tmpdir(), "ram-plugin-hook-"));
 try {
-  for (const [name, contents] of Object.entries(localArchive)) {
+  for (const [name, contents] of Object.entries(desktopArchive)) {
     const path = join(installed, name);
     await mkdir(resolve(path, ".."), { recursive: true });
     await writeFile(path, contents);
   }
-  const server = join(installed, "server", "index.js");
+  const server = join(installed, desktopPluginPath, "server", "index.js");
   const transport = new StdioClientTransport({ command: process.execPath, args: [server], stderr: "pipe" });
   const client = new Client({ name: "chatgpt-plugin-smoke-test", version: "0.1.0" });
   try {
@@ -47,7 +53,7 @@ try {
     await client.close();
   }
   const hook = spawnSync(process.execPath, [
-    join(installed, "server", "capture-cli.js"),
+    join(installed, desktopPluginPath, "server", "capture-cli.js"),
     "hook",
     "codex",
     "--project",

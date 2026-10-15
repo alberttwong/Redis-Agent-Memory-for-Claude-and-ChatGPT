@@ -85,3 +85,18 @@ await writeFile(output, zipSync(files, {
   mtime: new Date("2000-01-01T00:00:00Z"),
 }));
 process.stdout.write(`Packed ${Object.keys(files).length} ${profile} plugin files to ${output}\n`);
+
+if (!remoteUrl && !requestedOutput) {
+  const marketplace = JSON.parse(await readFile(join(root, ".agents", "plugins", "marketplace.json"), "utf8"));
+  marketplace.plugins[0].source.path = "./plugins/redis-agent-memory";
+  const desktopFiles = {
+    ".agents/plugins/marketplace.json": new TextEncoder().encode(`${JSON.stringify(marketplace, null, 2)}\n`),
+    ...Object.fromEntries(Object.entries(files).map(([name, contents]) => [`plugins/redis-agent-memory/${name}`, contents])),
+  };
+  const desktopOutput = join(buildRoot, `redis-agent-memory-chatgpt-desktop-${packageDocument.version}.zip`);
+  await writeFile(desktopOutput, zipSync(desktopFiles, {
+    level: 9,
+    mtime: new Date("2000-01-01T00:00:00Z"),
+  }));
+  process.stdout.write(`Packed standalone desktop marketplace to ${desktopOutput}\n`);
+}
