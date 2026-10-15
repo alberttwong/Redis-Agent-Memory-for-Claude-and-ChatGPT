@@ -1,14 +1,41 @@
 # Redis Agent Memory MCP bridge
 
-Share Redis Agent Memory between Claude Desktop, Claude Code, and Codex using Redis's native MCP endpoint. For standard long-term memory operations, connect directly to Redis without running this project's local server. This repository also includes an optional bridge for ordered session events and structured task checkpoints.
+Automatic memory saving is the default operating mode for configured Codex projects. Every submitted prompt and available final response is written to a private local retry queue before delivery to Redis Agent Memory. New sessions automatically recall recent context for the same user and project. Agents do not need to call a memory tool or ask the user for owner, namespace, session, or memory IDs on each turn.
 
-**Want automatic saving?** The [automatic capture guide](docs/automatic-capture.md) installs project hooks for Codex and Claude Code. Prompts, available final responses, and recent-context recall use generated identifiers and per-user owner defaults, with a local retry queue. Ordinary Claude Desktop chat does not use Claude Code hooks.
+The project can also expose native Redis MCP tools for explicit searches and writes, and includes an optional local bridge for ordered session events and structured task checkpoints. Ordinary Claude Desktop chat does not run local Codex or Claude Code hooks.
 
-**Using Claude Desktop?** Follow [Claude Desktop: native connector](#claude-desktop-native-connector) below. For the local bridge, see the [separate bridge setup guide](docs/bridge-setup.md#claude-desktop-optional-local-bridge).
+## Quick start
 
-**Using Codex Desktop?** Start with [automatic prompt capture](#codex-desktop-automatic-prompt-capture). The [native MCP connection](#codex-desktop-native-mcp) adds tools for the agent to call; it does not save prompts by itself.
+Install the project-scoped hooks and default-enabled capture configuration:
 
-## Recommended: connect to the native MCP endpoint
+```sh
+git clone https://github.com/alberttwong/redis-agent-memory-mcp.git
+cd redis-agent-memory-mcp
+npm ci
+npm run capture:install
+```
+
+The installer preserves existing hooks and configuration. It creates a private `.env` only when one does not exist, enables capture in `.memory-capture.json`, and ignores the local retry queue. Add the Redis values to `.env`:
+
+```dotenv
+AGENT_MEMORY_BASE_URL=https://your-agent-memory-endpoint
+AGENT_MEMORY_STORE_ID=your-store-id
+AGENT_MEMORY_API_KEY=your-store-api-key
+```
+
+Confirm the local setup without contacting Redis:
+
+```sh
+npm run capture:doctor
+```
+
+Open the repository in Codex and review/trust the hook definition when prompted. Codex requires that security review and normal installers cannot approve it silently. After trust is granted, saving and startup recall happen automatically on ordinary turns. Set `enabled` to `false` in `.memory-capture.json` to opt out.
+
+For another repository, run `ram-capture install --project /absolute/path/to/project`; see the [automatic capture guide](docs/automatic-capture.md) for installation, identity, retry, and uninstall details.
+
+## Optional direct native MCP access
+
+Automatic saving does not require the agent-facing native MCP connection below; the capture handler talks to the same endpoint itself. Configure the connector when agents should also perform explicit memory searches, writes, or document operations.
 
 Configure both clients to use the same Agent Memory service and store:
 
@@ -43,7 +70,7 @@ Remote connectors run from Anthropic's infrastructure. Our SDK test verified the
 
 Codex Desktop shares MCP configuration with the CLI on the same host.
 
-This section connects the agent's memory tools. For automatic saving without asking the agent to call a tool, complete the capture setup below as well.
+This section adds agent-callable memory tools. Automatic saving remains active independently through the project hooks.
 
 Use the configuration-file route below; it does not depend on a Desktop settings menu being available.
 
@@ -64,32 +91,13 @@ For an environment-based configuration, the CLI can also register the server wit
 
 See the [official OpenAI MCP configuration documentation](https://learn.chatgpt.com/docs/extend/mcp?surface=app#configure-with-configtoml). The endpoint was tested with an SDK client; Desktop setup has not been verified end to end.
 
-### Codex Desktop: automatic prompt capture
+### Automatic saving operations
 
-The capture handler runs locally on macOS with Node.js 20.12+ and zsh. It connects to Redis's native MCP endpoint directly; registering the optional stdio bridge is not required.
+The capture handler runs locally with Node.js 20.12+ and is enabled by default by `ram-capture install`. It connects to Redis's native MCP endpoint directly; registering the optional stdio bridge is not required.
 
-1. Clone this repository, or pull the merged capture implementation into a clean existing checkout:
+The owner defaults to a hash of the OS account and hostname, the namespace defaults to the project name, sessions derive from each client conversation, and memory IDs are generated automatically. Set `AGENT_MEMORY_OWNER_ID` in the private `.env` only when the same identity must be shared across computers.
 
-```sh
-git clone https://github.com/alberttwong/redis-agent-memory-mcp.git
-cd redis-agent-memory-mcp
-npm ci
-npm run build
-cp -n .env.example .env
-```
-
-If `.env` already exists, keep it and edit its values instead of copying over it. Set these three values privately:
-
-```dotenv
-AGENT_MEMORY_BASE_URL=https://your-agent-memory-endpoint
-AGENT_MEMORY_STORE_ID=your-store-id
-AGENT_MEMORY_API_KEY=your-store-api-key
-```
-
-2. Review `.memory-capture.json`. This repository enables capture with namespace `redis-agent-memory-mcp`. There is no required owner or session to enter: the owner defaults to a hash of the OS account and hostname, sessions derive from each client conversation, and memory IDs are generated automatically. For the same identity across computers, set `AGENT_MEMORY_OWNER_ID` in your private `.env` to a stable personal identifier.
-3. Open **this repository folder** as the project in Codex Desktop. The checked-in `.codex/hooks.json` registers `SessionStart`, `UserPromptSubmit`, and `Stop`. Trust the project configuration and review/trust the exact hooks when Codex requests it. Fully quit and reopen the app and start a fresh local chat. Merely registering the native MCP server does not activate these hooks.
-4. Submit an ordinary prompt such as “My project needs checkout retry tests.” Once hooks are active, the prompt is queued locally and sent to Redis, and the final assistant response is saved when available. Startup hooks retrieve recent memories for the same owner and namespace.
-5. Check delivery from a terminal in the repository:
+Check delivery or retry pending writes at any time:
 
 ```sh
 npm run capture:status
@@ -99,35 +107,13 @@ npm run capture:flush
 
 The status command reports the resolved owner, namespace, and pending queue count. Use those values to inspect Redis records with the `auto-capture` topic, or ask the agent: “Retrieve my recent project memories using the scope supplied by the capture hook.” A zero pending count only describes the queue; verify a saved record to confirm that the client actually invoked a hook.
 
+The package also includes a Codex plugin manifest and bundled hooks. Plugin distributors can ship the package after `npm pack`; the hooks resolve the handler through `$PLUGIN_ROOT`. Codex still requires users to review and trust plugin hooks. Run `ram-capture uninstall` (or `npm run capture:uninstall`) to remove only installer-managed project hooks; local configuration, credentials, and queued data are deliberately preserved.
+
 Capture is project-scoped. Opening another project does not install hooks there. To record work in your own application repository, follow [Use another project](docs/automatic-capture.md#use-another-project), which covers merging hooks, using the installed handler's absolute path, and configuring a separate project namespace. See the [full capture guide](docs/automatic-capture.md) for retry behavior, identity overrides, and supported events.
 
-The handler has been tested live for prompt delivery, final-response capture, retry, and cross-client recall using hook payloads. Automatic lifecycle execution still requires the installed Codex version to support the hooks and the user to trust them. Records use long-term-memory type `message`, not Redis's ordered session-memory API.
+The handler has been tested live for prompt delivery, final-response capture, retry, and cross-client recall using hook payloads. Records use long-term-memory type `message`, not Redis's ordered session-memory API.
 
-### Verified native tools
-
-A live test on October 15, 2026 successfully authenticated, initialized an MCP client, discovered nine tools, and executed a read-only `search_long_term_memory` call scoped to a synthetic test owner and namespace. It returned an empty result without errors. No memories were written or deleted during testing.
-
-The tested endpoint exposed:
-
-- `create_long_term_memories`
-- `search_long_term_memory`
-- `edit_long_term_memory`
-- `delete_long_term_memories`
-- `create_document_ingestion`
-- `get_document_ingestion`
-- `list_document_ingestion_outputs`
-- `list_memory_sources`
-- `list_source_memories`
-
-Session-history, health, and combined resume tools were not present in that endpoint's discovered tool list. Availability can differ by deployment; discover the tools on your own service before relying on them. Write operations, embeddings, and document extraction were not verified by this read-only test.
-
-### Handoff using native tools
-
-In Claude Code, use `create_long_term_memories` to save progress under a stable memory ID such as `checkout-retry-123-handoff`, with the same `owner_id`, `namespace`, and `session_id` throughout the task. Include the current goal, decisions, completed work, next steps, blockers, branch, and test results in the memory text. Use `edit_long_term_memory` to update the existing handoff record as work progresses.
-
-In Codex, use `search_long_term_memory` with the matching `owner_id`, `namespace`, and `session_id` to retrieve the saved handoff. Filter-only searches can use `sort_by: "updatedAt"` and `sort_order: "desc"`. Inspect the shared repository before continuing. Save regularly so a sudden credit limit leaves a recent checkpoint available.
-
-The native tools use snake_case arguments; the optional bridge tools below use camelCase. The snippets in `integration/` are specifically for the bridge and reference its tool names.
+The verified native-tool inventory and direct cross-agent workflow now live in [Native Redis Agent Memory tools](docs/native-tools.md).
 
 ## Redis Agent Memory capabilities
 
@@ -144,7 +130,7 @@ See the [Redis Agent Memory documentation](https://redis.io/docs/latest/develop/
 
 ## Use cases
 
-The examples below use the optional bridge's tools. For a direct native connection, use the native handoff workflow above.
+The examples below use the optional bridge's tools. For a direct native connection, use the [native handoff workflow](docs/native-tools.md#handoff-using-native-tools).
 
 ### Switch agents when credits run out
 
@@ -217,7 +203,7 @@ Each client launches its own local bridge process. Both processes use the same R
 
 `memory_append` writes session events. `checkpoint_save` writes or updates a deterministic long-term memory record for the task. `resume_context` fetches that checkpoint directly, retrieves session history, and searches for relevant long-term memories in parallel.
 
-The MCP bridge itself records content agents send through its tools. The optional [capture hooks](docs/automatic-capture.md) additionally save submitted prompts and available final responses without tool calls by the model. Neither mechanism detects exhausted credits, switches clients, or transfers hidden reasoning. Share or synchronize the working tree separately.
+The MCP bridge records content agents send through its tools. The default-enabled [capture hooks](docs/automatic-capture.md) save submitted prompts and available final responses without tool calls by the model. Neither mechanism detects exhausted credits, switches clients, or transfers hidden reasoning. Share or synchronize the working tree separately.
 
 ## Optional bridge tools
 

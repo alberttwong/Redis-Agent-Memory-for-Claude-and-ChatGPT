@@ -1,16 +1,22 @@
 #!/usr/bin/env node
 import { readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { captureConfigSchema, enqueue, flush, makeEntry, pendingCount, scope, type CaptureTransport, type HookInput } from "./capture.js";
+import { captureHooksInstalled, installCapture, uninstallCapture } from "./capture-install.js";
 
 const mode = process.argv[2] ?? "hook";
 const source = process.argv[3] ?? "codex";
+function option(name: string): string | undefined {
+  const index = process.argv.indexOf(name);
+  return index >= 0 ? process.argv[index + 1] : undefined;
+}
 let inferredRoot = process.cwd();
 try { inferredRoot = execFileSync("git", ["rev-parse", "--show-toplevel"], {encoding: "utf8", stdio: ["ignore", "pipe", "ignore"]}).trim(); } catch {}
-const projectRoot = resolve(process.env.MEMORY_CAPTURE_PROJECT_ROOT ?? inferredRoot);
+const projectRoot = resolve(option("--project") ?? process.env.MEMORY_CAPTURE_PROJECT_ROOT ?? inferredRoot);
 const queue = join(projectRoot, ".memory-capture", "queue");
 let config: ReturnType<typeof captureConfigSchema.parse>;
 
@@ -28,6 +34,76 @@ function unpack(value: unknown): any {
 }
 
 async function main() {
+  if (mode === "install") {
+    const installed = await installCapture(
+      projectRoot,
+      process.execPath,
+      fileURLToPath(import.meta.url),
+    );
+    output({
+      ...installed,
+      nextStep: "Fill the Redis values in .env, then review and trust the hooks in Codex.",
+    });
+    return;
+  }
+  if (mode === "uninstall") {
+    output({
+      ...(await uninstallCapture(projectRoot)),
+      preserved: [".env", ".memory-capture.json", ".memory-capture/"],
+    });
+    return;
+  }
+  if (mode === "help" || mode === "--help" || mode === "-h") {
+    process.stdout.write([
+      "Usage: ram-capture <command> [--project PATH]",
+      "",
+      "Commands:",
+      "  install    Install project-scoped Codex hooks and local config",
+      "  doctor     Check hook, config, credentials, and retry queue state",
+      "  status     Print capture identity and pending queue count",
+      "  flush      Retry queued writes",
+      "  uninstall  Remove only hooks installed by ram-capture",
+      "  hook       Handle a Codex hook event on stdin",
+      "",
+    ].join("\n"));
+    return;
+  }
+
+  try {
+    process.loadEnvFile(join(projectRoot, ".env"));
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
+
+  if (mode === "doctor") {
+    const issues: string[] = [];
+    let enabled: boolean | undefined;
+    try {
+      const parsed = captureConfigSchema.parse(
+        JSON.parse(await readFile(join(projectRoot, ".memory-capture.json"), "utf8")),
+      );
+      enabled = parsed.enabled;
+      if (!enabled) issues.push("Capture is disabled in .memory-capture.json");
+    } catch {
+      issues.push("Missing or invalid .memory-capture.json");
+    }
+    const hooksInstalled = await captureHooksInstalled(projectRoot);
+    if (!hooksInstalled) issues.push("Codex capture hooks are not installed");
+    for (const name of ["AGENT_MEMORY_BASE_URL", "AGENT_MEMORY_STORE_ID", "AGENT_MEMORY_API_KEY"]) {
+      if (!process.env[name]?.trim()) issues.push(`Missing ${name} in the environment or .env`);
+    }
+    output({
+      ok: issues.length === 0,
+      projectRoot,
+      enabled,
+      hooksInstalled,
+      pending: await pendingCount(queue),
+      issues,
+    });
+    if (issues.length) process.exitCode = 1;
+    return;
+  }
+
   config = captureConfigSchema.parse(JSON.parse(await readFile(join(projectRoot, ".memory-capture.json"), "utf8")));
   if (mode === "status") {
     const resolved = scope(config, projectRoot, source, {hook_event_name: "SessionStart", session_id: "status"});
@@ -43,7 +119,7 @@ async function main() {
     if (!input || typeof input.session_id !== "string" || !input.session_id) throw new Error("Missing hook session identity");
     const entry = makeEntry(config, projectRoot, source, input, [process.env.AGENT_MEMORY_API_KEY ?? ""]);
     if (entry) await enqueue(queue, entry);
-  } else if (mode !== "flush") throw new Error("Expected hook, status, or flush");
+  } else if (mode !== "flush") throw new Error("Expected install, doctor, status, flush, uninstall, help, or hook");
 
   // Enqueue before touching the network so missing credentials/outages preserve the prompt.
   const key = process.env.AGENT_MEMORY_API_KEY;
@@ -88,9 +164,14 @@ async function main() {
   } finally { await client.close(); }
 }
 
-main().catch(async () => {
-  // Do not print server errors, payloads, headers, credentials, or captured prompts.
-  console.error("Redis capture: delivery incomplete; inspect pending queue with capture status and retry with capture flush.");
+main().catch((error: unknown) => {
+  if (mode === "hook" || mode === "flush") {
+    // Do not print server errors, payloads, headers, credentials, or captured prompts.
+    console.error("Redis capture: delivery incomplete; inspect pending queue with capture status and retry with capture flush.");
+  } else {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`ram-capture ${mode} failed: ${message}`);
+  }
   if (mode === "hook") output({});
   else process.exitCode = 1;
 });

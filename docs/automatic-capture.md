@@ -4,14 +4,14 @@ The project hooks save submitted prompts and final assistant responses to Redis 
 
 ## Install in this repository
 
-1. Install Node.js 20.12 or later and zsh, then run `npm install` and `npm run build`.
-2. Configure `.env` with the Redis endpoint, store ID, and API key, as described in the README. It remains ignored by Git.
-3. Check `.memory-capture.json`. Capture is enabled for this project; edit `enabled` to `false` to turn it off.
-4. For Codex, trust the project's `.codex/` configuration and review/trust the new hook definitions when the client requests it. Restart the app or session so it loads the hooks. A hook listed in the config is not proof that it has been trusted or executed.
-5. For Claude Code, launch it in this project, review its hook configuration, and restart the session. This includes Claude Code sessions inside Desktop, not ordinary Claude Desktop chat.
+1. Install Node.js 20.12 or later, then run `npm install` and `npm run capture:install`.
+2. Configure the generated private `.env` with the Redis endpoint, store ID, and API key. Existing `.env`, `.memory-capture.json`, hooks, and ignore rules are preserved or merged rather than replaced.
+3. Run `npm run capture:doctor`. It reports missing local setup without contacting Redis.
+4. Check `.memory-capture.json`. Capture is enabled for this project; edit `enabled` to `false` to turn it off.
+5. For Codex, trust the project's `.codex/` configuration and review/trust the new hook definitions when the client requests it. Restart the app or session so it loads the hooks. A hook listed in the config is not proof that it has been trusted or executed.
 6. Submit an ordinary prompt, then run `npm run capture:status`. A zero pending count means no entries are awaiting delivery; also verify a record in Redis or ask the connected agent to retrieve it.
 
-Codex discovers `.codex/hooks.json`; Claude Code reads `.claude/settings.json`. Both call `scripts/capture.sh`, which loads the bridge's `.env` and invokes the compiled capture handler. The command derives the Git root so it also works when the client changes to a subdirectory.
+Codex discovers `.codex/hooks.json`. Installer-managed hooks invoke the compiled CLI directly; the CLI derives the Git root, loads that project's `.env`, and uses that project's configuration and queue even when Codex starts from a subdirectory. The legacy shell launcher remains available for the checked-in Claude Code configuration and npm convenience commands.
 
 Client versions and policy must support and allow `SessionStart`, `UserPromptSubmit`, and `Stop` command hooks. See the [Codex hook reference](https://learn.chatgpt.com/docs/hooks) and [Claude Code hook reference](https://code.claude.com/docs/en/hooks). Hooks need network access to the configured Redis endpoint. The SDK test does not prove that a particular Desktop installation has activated hooks; test a fresh session after trusting them.
 
@@ -58,11 +58,20 @@ There is no background daemon or timer: if the client closes during an outage, q
 
 ## Use another project
 
-Install/build this bridge once. In the target project:
+Install/build this package once, then point the installer at the target project:
 
-1. Add `.memory-capture.json` with `{"enabled":true,"namespace":"your-project","recallLimit":6}`; omit `ownerId` for per-user defaults.
-2. Merge the hook definitions from this repository into the target's client config. Replace each command's script path with the absolute path to the installed bridge's `scripts/capture.sh`; preserve other hooks. Commands run in the target project so its configuration and queue are used. If needed, set `MEMORY_CAPTURE_PROJECT_ROOT` explicitly to the target project's root.
-3. Ignore `.memory-capture/` in the target's `.gitignore`.
-4. Restart and trust/review hooks as required, then submit and retrieve a test prompt.
+```sh
+node /absolute/path/to/redis-agent-memory-mcp/dist/src/capture-cli.js install --project /absolute/path/to/target
+```
+
+Or, after installing the package globally or from a packed tarball:
+
+```sh
+ram-capture install --project /absolute/path/to/target
+```
+
+The command merges all three Codex hooks, creates missing local configuration, and adds `.env` and `.memory-capture/` to the target's ignore file. Fill in the target's `.env`, run `ram-capture doctor --project /absolute/path/to/target`, then restart and trust/review the hooks as required. It does not silently approve hooks on the user's behalf.
+
+`ram-capture uninstall --project /absolute/path/to/target` removes only handlers identified as Redis Agent Memory capture hooks. It preserves `.env`, `.memory-capture.json`, ignored queue data, and unrelated hook handlers so queued content cannot be deleted accidentally.
 
 This installation is project-scoped. It does not record unrelated projects or ordinary Claude Desktop chats. Turn it off by setting `enabled: false`; pending entries remain on disk until capture is re-enabled and flushed.
