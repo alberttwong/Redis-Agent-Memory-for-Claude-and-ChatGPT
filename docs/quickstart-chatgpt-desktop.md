@@ -44,7 +44,7 @@ node build/chatgpt-plugin/local/server/capture-cli.js doctor --plugin --project 
 3. Confirm the Redis Agent Memory plugin is enabled and its hook is trusted.
 4. Start a new local chat.
 
-Automatic saving and startup recall are now active for ordinary supported turns. Project hooks must be trusted again if their exact definition changes. Cloud-orchestrated Work chats do not load this local hook configuration, even if they can access your computer.
+Automatic saving and startup recall are now active for ordinary supported turns. Plugin hooks must be trusted again if their exact definition changes. Cloud-orchestrated Work chats do not load this local hook configuration, even if they can access your computer.
 
 These steps follow the current [Codex environment](https://learn.chatgpt.com/docs/environments/modes) and [hooks](https://learn.chatgpt.com/docs/hooks) behavior documented by OpenAI.
 

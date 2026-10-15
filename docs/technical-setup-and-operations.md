@@ -11,7 +11,7 @@ npm ci
 npm run plugin:test
 ```
 
-Restart ChatGPT Desktop, install **Redis Agent Memory** from the repository's `redis-agent-memory-local` source, and use its `setup-redis-memory` skill in the project. Add `AGENT_MEMORY_BASE_URL`, `AGENT_MEMORY_STORE_ID`, and `AGENT_MEMORY_API_KEY` to the generated `.env`, then start a new local chat after trusting the plugin hook. See [ChatGPT plugin packaging](chatgpt-plugin.md), [Automatic capture](automatic-capture.md), and [Automatic saving operations](automatic-saving-operations.md) for profiles, identity, retries, manual project-hook installation, and removal.
+Restart ChatGPT Desktop, choose **Redis Agent Memory local plugins** in the Plugins Directory, install **Redis Agent Memory**, and use its `setup-redis-memory` skill in the project. Add `AGENT_MEMORY_BASE_URL`, `AGENT_MEMORY_STORE_ID`, and `AGENT_MEMORY_API_KEY` to the generated `.env`, then start a new local chat after trusting the plugin hook. See [ChatGPT plugin packaging](chatgpt-plugin.md), [Automatic capture](automatic-capture.md), and [Automatic saving operations](automatic-saving-operations.md) for profiles, identity, retries, manual project-hook installation, and removal.
 
 ## Claude Desktop packaging
 
