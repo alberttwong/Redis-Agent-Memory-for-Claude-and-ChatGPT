@@ -2,9 +2,9 @@
 
 [Back to README](../README.md)
 
-Install Redis Agent Memory to save prompts and available final responses from local Codex chats and recall project context in later chats. This setup works in **Codex → This computer** in ChatGPT Desktop. It requires Node.js 20.12 or later and a Redis Agent Memory service URL, store ID, and API key.
+Use the **repository marketplace** as the default installation option. Install Redis Agent Memory to save prompts and available final responses from local Codex chats and recall project context in later chats. This setup works in **Codex → This computer** in ChatGPT Desktop. It requires Node.js 20.12 or later and a Redis Agent Memory service URL, store ID, and API key.
 
-## 1. Install from the repository marketplace
+## 1. Install from the repository marketplace (default)
 
 Register the repository as a marketplace source:
 

@@ -4,7 +4,17 @@ The project hooks save submitted prompts and final assistant responses to Redis 
 
 For routine status checks, retries, installation in another project, and removal, see [Automatic saving operations](automatic-saving-operations.md).
 
-## Install in this repository
+## Claude Code marketplace (default)
+
+Install **Redis Agent Memory** through **Add marketplace**, then run `/redis-agent-memory:setup-redis-memory` in a local Claude Code project. Follow the [Claude Desktop quickstart](quickstart-claude-desktop.md). Plugin v0.1.5+ bundles `SessionStart`, `UserPromptSubmit`, and `Stop` in `hooks/hooks.json` and a standalone capture CLI; no clone or source build is required.
+
+The setup skill creates a missing `.memory-capture.json` with capture enabled and adds the private queue to `.gitignore`. Existing opt-outs are preserved. An unconfigured project is skipped. Hooks use the current Claude project root, not the plugin install directory. Credentials resolve from environment, project `.env`, shared settings, then the browser form's `connection.json` in the plugin data directory. The setup skill passes the same settings path when checking configuration. Captured prompts are queued before network access and retried on later events; final responses are saved only when supplied by Claude Code.
+
+Start a fresh local session with the plugin enabled, inspect `/hooks`, and retrieve a saved test prompt from Redis. `doctor --plugin` assumes the plugin provides hooks; it cannot verify the app activated them. To inspect pending writes or retry manually, ask the setup skill to run the packaged CLI's `status claude` or `flush claude` with the same project and settings paths.
+
+Use one capture hook installation per project. When developing this repository with the marketplace plugin enabled, remove the redundant Redis handlers from `.claude/settings.json` to avoid capturing the same event twice. Ordinary Desktop Chat and Cowork are not covered by this verified local Claude Code flow.
+
+## Source development setup
 
 1. Install Node.js 20.12 or later, then run `npm install` and `npm run capture:install`.
 2. Configure the generated private `.env` with the Redis endpoint, store ID, and API key. Existing `.env`, `.memory-capture.json`, hooks, and ignore rules are preserved or merged rather than replaced.

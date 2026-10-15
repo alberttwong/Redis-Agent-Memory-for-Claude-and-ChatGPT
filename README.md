@@ -2,7 +2,7 @@
 
 Give Claude Desktop and ChatGPT Desktop a durable project memory backed by Redis Agent Memory. The project keeps useful context available across new chats and agent handoffs, without making people repeat the project history every time.
 
-In a local Codex chat inside ChatGPT Desktop, submitted prompts and available final responses are saved automatically and retried after outages. For Claude Desktop, start with **Add marketplace** and configure memory using the browser setup form in a local Claude Code session. Ordinary Desktop Chat uses the MCPB extension. Both provide tools to search memory, record important work, and save checkpoints. Existing Claude and ChatGPT exports can also be imported into the same Redis memory store.
+In a local Codex chat inside ChatGPT Desktop, submitted prompts and available final responses are saved automatically and retried after outages. For Claude Desktop, start with **Add marketplace** and configure memory using the browser setup form and project setup skill in a local Claude Code session. Configured local Claude Code projects also save prompts and available final responses automatically. Ordinary Desktop Chat uses the MCPB extension. Both provide tools to search memory, record important work, and save checkpoints. Existing Claude and ChatGPT exports can also be imported into the same Redis memory store.
 
 ## When to use it
 
@@ -25,11 +25,12 @@ Claude Desktop currently uses the plugin's browser form for Redis credentials be
 | Client or workflow | Memory behavior | Retry queue |
 | --- | --- | --- |
 | ChatGPT Desktop, local Codex chat | Prompts and available final responses save automatically after project hooks are trusted | Yes |
-| Claude Desktop | Claude chooses when to call the extension's memory and checkpoint tools | No |
+| Claude Code, local session with marketplace plugin | Prompts and available final responses save automatically after project setup and hook activation | Yes |
+| Ordinary Claude Desktop Chat | Claude chooses when to call the extension's memory and checkpoint tools | No |
 | Claude or ChatGPT import | Preview by default; `--write` queues selected historical records | Yes |
 | Cloud-orchestrated ChatGPT Work chat | Local project hooks do not run | No |
 
-Automatic saving is enabled by default. It can be disabled explicitly in `.memory-capture.json`. Claude Desktop remains model-directed because ordinary Desktop Chat does not expose the lifecycle hooks needed for passive capture.
+The setup skill enables automatic saving for the current project when creating `.memory-capture.json`. Set `enabled` to `false` to disable it. Ordinary Claude Desktop Chat remains model-directed because it does not expose these lifecycle hooks.
 
 To reuse Redis credentials across worktrees and separate checkouts, configure [shared settings outside Git](docs/automatic-saving-operations.md#reuse-redis-settings-across-worktrees-and-checkouts). Each project can override them in its own `.env`.
 

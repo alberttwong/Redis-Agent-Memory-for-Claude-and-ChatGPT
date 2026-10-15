@@ -10,3 +10,14 @@ Call the plugin's `memory_setup` tool. Give the user the returned local browser 
 After the user saves the form, call `memory_health` to check the connection. If it fails, describe the error without exposing credentials. Do not claim a successful connection based on installing the plugin or discovering its tools.
 
 The form runs on the same computer as the local MCP server. Use a local Claude Code session on This computer. A cloud or isolated VM session may not expose its loopback address to the user's browser.
+
+For automatic saving in the current local Claude Code project, run the bundled CLI after the connection is configured:
+
+```sh
+node "${CLAUDE_PLUGIN_ROOT}/server/capture-cli.mjs" configure --project "${CLAUDE_PROJECT_DIR}" --settings "${CLAUDE_PLUGIN_DATA}/connection.json"
+node "${CLAUDE_PLUGIN_ROOT}/server/capture-cli.mjs" doctor --plugin --project "${CLAUDE_PROJECT_DIR}" --settings "${CLAUDE_PLUGIN_DATA}/connection.json"
+```
+
+Claude substitutes the plugin paths in this skill when loading it. These commands create a missing `.memory-capture.json` with capture enabled and ignore the local retry queue. Existing configuration, including an explicit opt-out, is preserved. Explain that prompts and available final responses will be saved to Redis and temporarily queued locally during outages. No `.env` edits are needed when the browser connection is configured. The doctor checks local setup; it does not prove live delivery or hook activation.
+
+Start a new local Claude Code session with the plugin enabled and inspect `/hooks` for `SessionStart`, `UserPromptSubmit`, and `Stop`. Submit a test prompt and retrieve its saved record to verify delivery. Do not claim capture is active solely because doctor passes. To disable capture, set `enabled` to `false` in `.memory-capture.json`. Ordinary Desktop Chat does not run these hooks.

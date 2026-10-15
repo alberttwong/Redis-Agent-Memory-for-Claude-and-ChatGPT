@@ -22,6 +22,13 @@ for (const entry of catalog.plugins) {
   assert.deepEqual(server.args, ["${CLAUDE_PLUGIN_ROOT}/server/index.mjs"],
     "Claude must launch the packaged server using its supported plugin root variable");
   await access(join(pluginRoot, "server", "index.mjs"));
+  await access(join(pluginRoot, "server", "capture-cli.mjs"));
+  const hooks = await readJson(join(pluginRoot, "hooks", "hooks.json"));
+  for (const event of ["SessionStart", "UserPromptSubmit", "Stop"]) {
+    const handler = hooks.hooks?.[event]?.[0]?.hooks?.[0];
+    assert.equal(handler?.type, "command");
+    assert.equal(handler.command, 'node "${CLAUDE_PLUGIN_ROOT}/server/capture-cli.mjs" hook claude --project "${CLAUDE_PROJECT_DIR}"');
+  }
   await access(join(pluginRoot, "skills", "setup-redis-memory", "SKILL.md"));
   await access(join(pluginRoot, "skills", "use-redis-memory", "SKILL.md"));
 }
