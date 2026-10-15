@@ -31,7 +31,7 @@ npm run capture:doctor
 
 Open the repository in a local Codex session, then use `/hooks` to inspect and trust the installed hook definition. Codex requires that security review and normal installers cannot approve it silently. Trust is tied to the exact hook definition, so changed hooks must be reviewed again. Start a new local session after installation or trust approval; saving and startup recall then happen automatically on ordinary turns. Set `enabled` to `false` in `.memory-capture.json` to opt out.
 
-Local command hooks and plugin hooks do not run in cloud-orchestrated Work chats, even when those chats use local computer access. This automatic-saving workflow requires local-only Codex orchestration; enterprise deployments can use supported managed MCP hooks instead. See the [official Codex hooks documentation](https://learn.chatgpt.com/docs/hooks) for current support boundaries.
+Local command hooks do not run in cloud-orchestrated Work chats, even when those chats use local computer access. This automatic-saving workflow requires local-only Codex orchestration; enterprise deployments can use supported managed MCP hooks instead. See the [official Codex hooks documentation](https://learn.chatgpt.com/docs/hooks) for current support boundaries.
 
 For another repository, run `ram-capture install --project /absolute/path/to/project`; see the [automatic capture guide](docs/automatic-capture.md) for installation, identity, retry, and uninstall details.
 
@@ -55,7 +55,7 @@ npm run capture:flush
 
 The status command reports the resolved owner, namespace, and pending queue count. Use those values to inspect Redis records with the `auto-capture` topic, or ask the agent: “Retrieve my recent project memories using the scope supplied by the capture hook.” A zero pending count only describes the queue; verify a saved record to confirm that the client actually invoked a hook.
 
-The package also includes a Codex plugin manifest and bundled hooks. Plugin distributors can ship the package after `npm pack`; the hooks resolve the handler through `$PLUGIN_ROOT`. Codex still requires users to review and trust plugin hooks. Run `ram-capture uninstall` (or `npm run capture:uninstall`) to remove only installer-managed project hooks; local configuration, credentials, and queued data are deliberately preserved.
+Cloning or packaging this repository does not activate Codex hooks. Hooks are written into a target project only when `ram-capture install` (or `npm run capture:install`) is run explicitly. Run `ram-capture uninstall` (or `npm run capture:uninstall`) to remove only those installer-managed hooks; local configuration, credentials, and queued data are deliberately preserved.
 
 Capture is project-scoped. Opening another project does not install hooks there. To record work in your own application repository, follow [Use another project](docs/automatic-capture.md#use-another-project), which covers merging hooks, using the installed handler's absolute path, and configuring a separate project namespace. See the [full capture guide](docs/automatic-capture.md) for retry behavior, identity overrides, and supported events.
 

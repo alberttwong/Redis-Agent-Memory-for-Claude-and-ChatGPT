@@ -1,6 +1,0 @@
-{
-  "name": "redis-agent-memory-capture",
-  "version": "0.1.0",
-  "description": "Automatically capture Codex prompts and final responses in Redis Agent Memory.",
-  "hooks": "./hooks/hooks.json"
-}
