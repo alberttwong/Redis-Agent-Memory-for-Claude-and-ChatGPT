@@ -39,6 +39,16 @@ For another repository, run `ram-capture install --project /absolute/path/to/pro
 
 Automatic saving does not require agent-facing native MCP access. See [Optional native MCP connector setup](docs/native-mcp-setup.md) when Claude Desktop or Codex should also perform explicit memory searches, writes, or document operations.
 
+## Claude Desktop
+
+Claude Desktop can install the local bridge from the command line for model-directed, best-effort saving:
+
+```sh
+npm run capture:install:claude-desktop
+```
+
+This is not passive automatic capture: Desktop Chat does not expose the prompt and response lifecycle hooks used by local Codex. See [Claude Desktop setup and limitations](docs/claude-desktop.md) for configuration, verification, status, retry, and removal.
+
 ## Automatic saving operations
 
 Status checks, retries, scope details, installation for another project, and removal instructions are in [Automatic saving operations](docs/automatic-saving-operations.md). For event behavior and implementation details, see the [automatic capture guide](docs/automatic-capture.md).
