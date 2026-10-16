@@ -11,7 +11,7 @@
       "name": "redis-agent-memory",
       "source": "./plugins/redis-agent-memory-claude",
       "description": "Recall project context and save progress with Redis Agent Memory.",
-      "version": "0.1.6",
+      "version": "0.1.7",
       "category": "productivity"
     }
   ]
