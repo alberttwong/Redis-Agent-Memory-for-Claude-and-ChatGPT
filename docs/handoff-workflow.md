@@ -97,3 +97,30 @@ Use a test store and an API key that permits reading, writing, and deleting test
 
 This tests the packaged MCP integrations against real Redis, without opening Claude or ChatGPT or testing model tool selection. It verifies explicit checkpoint persistence and retrieval; it does not wait for background promotion of conversation events into long-term memory. The regular `npm test` suite remains independent of live credentials.
 
+## Verify the installed desktop clients
+
+Run this manual check separately from the packaged integration test. Record each client version, installed plugin version, execution mode, effective owner/namespace, and the actual tool used. Use an isolated test owner or disposable store and non-sensitive test content.
+
+1. Configure the installed Claude and ChatGPT integrations to use the same Redis endpoint, store, owner, and namespace. Capture namespaces are string namespaces; do not put one in `AGENT_MEMORY_NAMESPACE_ID`, which selects a namespace reference. See [scope compatibility](#scope-compatibility).
+2. In a configured local Claude Code session in Claude Desktop, submit a fictional decision with a fresh verification code, such as a retry limit and a random identifier. Ask Claude to acknowledge it without running tools or changing files. Check capture status for delivery acknowledgement and an empty queue, then independently retrieve the exact record. This establishes automatic capture; a model-written checkpoint alone does not.
+3. Open a fresh local Codex chat in ChatGPT Desktop in the configured project. Where available, select Codex from the ChatGPT dropdown, choose **Work in → This computer**, and use **⌘O** on macOS to open the folder. If these controls are absent, record that limitation and the app version instead of substituting a terminal or cloud chat. See OpenAI's [environment guide](https://learn.chatgpt.com/docs/environments/modes) and [desktop shortcuts](https://learn.chatgpt.com/docs/reference/commands).
+4. Ask the fresh chat to call the Redis bridge's `memory_search` tool for the latest fictional decision and return its limit and exact verification code. Identify the Redis server explicitly if other memory integrations are installed. Keep the expected answer and verification code out of this prompt, and ask it not to inspect files or earlier chats.
+5. Inspect the visible tool call and result. Pass only when the intended Redis server returns the saved record and the answer matches both fields. `agentmemory.memory_smart_search` belongs to the separate agentmemory service and does not verify this Redis bridge. A Codex terminal screenshot establishes interactive CLI behavior; desktop evidence must come from the desktop chat.
+6. In another fresh desktop chat, repeat the question without requesting a tool call. Inspect capture diagnostics to determine whether startup/per-prompt hooks supplied the record. Record this as a separate automatic-recall result; explicit MCP search does not establish hook activation. Verify a new desktop prompt/response is delivered as well before claiming automatic saving on that surface.
+
+Keep screenshots or redacted tool traces with the result. A correct answer reported by a tester without its tool trace is user-reported evidence, not direct observation of server selection. Clean up only records created for the test after validation is complete.
+
+### Diagnose an unavailable tool
+
+- Confirm the intended server is enabled in the project and start a fresh client session after configuration changes. Codex loads project configuration only in trusted projects; see [configuration basics](https://learn.chatgpt.com/docs/config-file/config-basic).
+- A server appearing in `codex mcp list` establishes configuration discovery, not successful startup. Check the MCP startup error and run `memory_health` through that client.
+- For a stdio server, verify the configured executable and bundled server path both exist. Resolve Node with `node -p process.execPath`; do not assume `/opt/homebrew/bin/node` exists when Node is installed through a version manager.
+- If a search is empty, compare owner, namespace versus namespace reference, endpoint, and store before changing the query or similarity threshold. Keep credentials in private settings, outside chat and screenshots.
+- When context is truncated, repeat with the normal configured budgets or retrieve the relevant details explicitly. A strict size cap can preserve the decision while omitting its verification code; bounded output alone is not a successful exact-recall test.
+
+### Acceptance evidence from October 16, 2026
+
+The v0.1.7 packaged integrations passed against live Redis after correcting the stale duplicate-checkpoint assertion in [PR #62](https://github.com/alberttwong/Redis-Agent-Memory-for-Claude-and-ChatGPT/pull/62). Direct checks also verified queue retention during a process-local connection failure, retry delivery, linked-worktree scope identity, bounded startup/per-prompt recall, and capture/delivery/recall diagnostics.
+
+Claude Desktop local Code with plugin v0.1.9 automatically captured a test decision. A fresh desktop session recalled the decision and exact code using default context budgets. A deliberately reduced 1,024-character budget preserved the limit but truncated the code. An interactive Codex CLI screenshot showed the correct Redis tool and matching answer. The tester subsequently reported the same exact answer for the requested desktop check; no desktop tool-call screenshot was supplied, so ChatGPT desktop server selection and its automatic capture/recall hooks remain unverified.
+
