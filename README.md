@@ -68,13 +68,16 @@ Redis Agent Memory provides:
 - Ordered session history for exact conversational context.
 - Long-term semantic memory across sessions.
 - Personal and shared namespaces: each user can have their own namespace, alongside shared namespaces for team, project, or organization context.
+- Project context for episodic recall: this plugin's local capture stores prompts and available final responses with a project namespace, source client, capture timestamp, session identifiers, and turn identifiers when available. These records provide a basis for finding past decisions and related exchanges within a project, such as “when we fixed authentication.”
 - Automatic summarization and extraction of durable facts.
 - Semantic, keyword, and hybrid retrieval with metadata filters.
 - Python, TypeScript, and REST APIs.
 - Compatibility with any model provider or agent framework.
-- Memory privacy guardrails in this plugin: agents are instructed not to store passwords, credentials, or sensitive personal information (PII), with automatic redaction of recognized patterns before storage.
+- Configurable memory privacy guardrails in this plugin: per-project redaction categories, custom patterns and sensitive fields, prompt/response saving controls, and optional context-field exclusions. Existing protections remain the default; the configured Redis API key is always redacted. See [guardrail configuration](docs/automatic-capture.md#configure-memory-guardrails).
 
 See the [Redis Agent Memory documentation](https://redis.io/docs/latest/develop/ai/context-engine/agent-memory/) for the service's full capabilities. This bridge currently exposes semantic search through `memory_search`; keyword and hybrid search are not exposed as separate bridge tools. When automatic summarization is enabled, session retrieval can return a summary and recent events rather than every original turn; use `includeSummarisedEvents` when requesting the underlying session history.
+
+Local capture derives the project namespace from the project folder name and a hash of its path, unless overridden in configuration. It does not automatically store a ChatGPT Project name or ID. The current `memory_search` tool supports semantic queries scoped by owner and namespace, but does not expose date-range filters or automatically reconstruct matching episodes. Capture timestamps and source session/turn identifiers are stored inside each captured record's JSON text; structured time filtering and grouping related prompts and responses into episodes would require additional implementation.
 
 ## Use cases
 
@@ -168,7 +171,7 @@ The end-to-end test checks that progress saved through the Claude package can be
 
 - For the optional bridge, the store API key stays in `.env` and is never returned by a bridge tool. For native connections, use the client's secret storage or a local untracked configuration.
 - The optional bridge filters semantic search by `ownerId` and applies namespace filtering when configured. With native tools, explicitly pass the appropriate `owner_id` and `namespace` filters.
-- Never store passwords, credentials, or sensitive personal information (PII) in memory, metadata, checkpoints, or identifiers. Keep only the task context needed for future work, using placeholders for sensitive details.
-- The bridge, capture hooks, and importers redact configured credentials and recognized sensitive patterns before writes; capture also filters new local queue entries and rechecks queued text before upload. Pattern matching cannot detect every name, address, or sensitive context. Disable automatic capture for sensitive conversations. Native endpoints used outside this bridge do not run its filter. Existing stored records and older queue files are not retroactively cleaned.
+- By default, omit passwords, credentials, and sensitive personal information (PII) from memory, metadata, checkpoints, and identifiers. Project owners can [configure guardrails](docs/automatic-capture.md#configure-memory-guardrails); keep only the task context needed for future work. The configured Redis API key is always redacted.
+- The bridge, capture hooks, and importers apply the project guardrails before writes; capture also filters new local queue entries and rechecks queued text before upload. Pattern matching cannot detect every name, address, or sensitive context. Disable automatic capture for sensitive conversations. Native endpoints used outside this bridge do not run its filter. Existing stored records are not retroactively cleaned. Older queue files are checked against the current policy when retried.
 - Redis semantic exclusions are advisory and do not replace these privacy guardrails.
 - The optional bridge exposes no delete tool. The native endpoint does expose `delete_long_term_memories`; use it only for intended memory removals.

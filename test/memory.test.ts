@@ -138,3 +138,23 @@ test("append and both checkpoint write branches sanitize text and nested metadat
   for (const sensitive of ["hunter2", "two", "person@example.com"]) assert(!sent.includes(sensitive));
   assert(sent.includes("[REDACTED]"));
 });
+
+test("MCP writes honor project policy for roles, metadata, and checkpoints", async () => {
+  const client = new FakeClient();
+  const gateway = new MemoryGateway(client, {...config, guardrails: {
+    redact: {email: false, credentials: false}, captureResponses: false,
+    sensitiveFields: ["internalId"], omitFields: ["repoPath"], customPatterns: ["CLIENT-[0-9]+"],
+  }});
+  const skipped = await gateway.append({sessionId: "task-1", role: "ASSISTANT", text: "skip"});
+  assert("skipped" in skipped && skipped.skipped);
+  assert.equal(client.added.length, 0);
+  await gateway.append({sessionId: "task-1", role: "USER", text: "person@example.com secret CLIENT-123", metadata: {internalId: 123}});
+  assert.equal(client.added[0].content[0].text, "person@example.com [REDACTED] [REDACTED]");
+  assert.deepEqual(client.added[0].metadata, {internalId: "[REDACTED]"});
+  await gateway.saveCheckpoint("task-1", {summary: "person@example.com secret CLIENT-123", repoPath: "/private/project"});
+  const checkpoint = client.created[0].memories[0].text;
+  assert(checkpoint.includes("person@example.com"));
+  assert(!checkpoint.includes("secret"));
+  assert(!checkpoint.includes("CLIENT-123"));
+  assert(!checkpoint.includes("repoPath"));
+});

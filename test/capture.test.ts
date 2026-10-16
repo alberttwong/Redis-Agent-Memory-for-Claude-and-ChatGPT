@@ -112,3 +112,26 @@ test("capture and queue sanitize sensitive content before persistence and retry 
     }));
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
+
+test("project guardrails survive queue persistence and apply stricter rules at retry", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "ram-policy-queue-"));
+  const guardrails = {redact: {email: false}, omitFields: ["sourceSessionId", "turnId"] as Array<"sourceSessionId" | "turnId">};
+  const configured = captureConfigSchema.parse({...config, guardrails});
+  try {
+    const entry = makeEntry(configured, "/project", "codex", {...input, prompt: "person@example.com CLIENT-123"})!;
+    const path = await enqueue(directory, entry, [], configured.guardrails);
+    const envelope = JSON.parse(JSON.parse(await readFile(path, "utf8")).memories[0].text);
+    assert.equal(envelope.content, "person@example.com CLIENT-123");
+    assert.equal(envelope.sourceSessionId, undefined);
+    assert.equal(envelope.turnId, undefined);
+    await flush(directory, client(async memories => {
+      assert.equal(JSON.parse(memories[0].text).content, "[REDACTED] [REDACTED]");
+      return {created: memories.map(memory => memory.id)};
+    }), [], {customPatterns: ["CLIENT-[0-9]+"]});
+    const disabled = captureConfigSchema.parse({...config, guardrails: {capturePrompts: false}});
+    assert.equal(makeEntry(disabled, "/project", "codex", input), null);
+    await enqueue(directory, entry, [], configured.guardrails);
+    const result = await flush(directory, client(async () => {throw new Error("Disabled role uploaded");}), [], disabled.guardrails);
+    assert.deepEqual(result, {sent: 0, pending: 0});
+  } finally { await rm(directory, {recursive: true, force: true}); }
+});

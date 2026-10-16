@@ -55,3 +55,14 @@ test("prompt recall uses shared privacy guardrails for query and historical cont
   assert.ok(context.includes("Use backoff"));
   assert.ok(!context.includes("123-45-6789") && !context.includes("person@example.com"));
 });
+
+
+test("prompt recall follows configured redaction overrides and custom patterns", async () => {
+  const configured = captureConfigSchema.parse({guardrails: {redact: {email: false}, customPatterns: ["CLIENT-[0-9]+"]}});
+  const context = await recallPrompt(configured, scope, "person@example.com CLIENT-123", async args => {
+    assert.equal(args.text, "person@example.com [REDACTED]");
+    return [{text: "person@example.com CLIENT-456"}];
+  });
+  assert(context.includes("person@example.com"));
+  assert(!context.includes("CLIENT-456"));
+});

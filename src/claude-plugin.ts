@@ -2,6 +2,7 @@ import { AgentMemory } from "@redis-iris/agent-memory";
 import { loadConfig, type AppConfig } from "./config.js";
 import { MemoryGateway } from "./memory.js";
 import { MemorySetup, memoryConfigPath, readMemorySettings } from "./memory-setup.js";
+import { loadProjectGuardrails } from "./privacy.js";
 import { createServer } from "./server.js";
 
 function connect(config: AppConfig) {
@@ -23,7 +24,7 @@ export function createClaudePlugin(configPath = memoryConfigPath(), gatewayFor: 
       };
     },
   });
-  const server = createServer(gateway);
+  const server = createServer(gateway, loadProjectGuardrails(process.env.MEMORY_CAPTURE_PROJECT_ROOT ?? process.env.CLAUDE_PROJECT_DIR ?? process.cwd()));
   server.registerTool("memory_setup", {
     title: "Set up Redis Memory",
     description: "Create a local browser form to configure the Redis URL, store ID, and API key without sharing credentials in chat. Also use to update connection settings.",

@@ -1,4 +1,4 @@
-import { redactSensitiveText, sanitizeMemory } from "./privacy.js";
+import { redactSensitiveText, sanitizeMemory, roleAllowed } from "./privacy.js";
 import { createHash } from "node:crypto";
 import type {
   AddSessionEventRequestContent,
@@ -115,6 +115,7 @@ export class MemoryGateway {
   }
 
   async append(input: AppendInput) {
+    if (!roleAllowed(input.role, this.config.guardrails)) return { skipped: true, reason: "Disabled by memory guardrails" };
     const scope = this.scope(input);
     const role = {
       USER: MessageRole.User,
@@ -128,9 +129,9 @@ export class MemoryGateway {
         input.actorId ??
         (input.role === "USER" ? scope.ownerId : this.config.agentId),
       role,
-      content: [{ text: redactSensitiveText(input.text, [this.config.apiKey]) }],
+      content: [{ text: redactSensitiveText(input.text, [this.config.apiKey], this.config.guardrails) }],
       createdAt: input.createdAt ?? new Date(),
-      metadata: sanitizeMemory(input.metadata, [this.config.apiKey]),
+      metadata: sanitizeMemory(input.metadata, [this.config.apiKey], this.config.guardrails),
       ...(scope.namespaceId
         ? { namespaceRef: { namespaceId: scope.namespaceId } }
         : scope.namespace
@@ -181,7 +182,7 @@ export class MemoryGateway {
   ) {
     const scope = this.scope(inputScope);
     const id = this.checkpointId(sessionId, inputScope);
-    const text = checkpointText(sessionId, sanitizeMemory(checkpoint, [this.config.apiKey]));
+    const text = checkpointText(sessionId, sanitizeMemory(checkpoint, [this.config.apiKey], this.config.guardrails));
     const common = {
       text,
       ownerId: scope.ownerId,
