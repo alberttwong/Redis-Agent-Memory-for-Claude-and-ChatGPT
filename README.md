@@ -68,11 +68,14 @@ Redis Agent Memory provides:
 - Python, TypeScript, and REST APIs.
 - Compatibility with any model provider or agent framework.
 - Redis provides sensitive-data exclusions that guide automatic extraction away from information that should not be retained in long-term memory. These model instructions are best effort and do not apply to directly created long-term memories. See [Redis's exclusion behavior and limitations](https://redis.io/docs/latest/develop/ai/context-engine/agent-memory/python-sdk-quickstart/).
-- This project adds application-side memory privacy guardrails before supported writes reach Redis: per-project redaction categories, custom patterns and sensitive fields, prompt/response saving controls, and optional context-field exclusions. These controls are already implemented in the plugin; you configure them rather than build them yourself. Existing protections remain the default; the configured Redis API key is always redacted. Applications using Redis Agent Memory directly need their own filtering for equivalent protection. See [guardrail configuration](docs/automatic-capture.md#configure-memory-guardrails) and [security notes](#security-notes).
 
 See the [Redis Agent Memory documentation](https://redis.io/docs/latest/develop/ai/context-engine/agent-memory/) for the service's full capabilities. This bridge currently exposes semantic search through `memory_search`; keyword and hybrid search are not exposed as separate bridge tools. When automatic summarization is enabled, session retrieval can return a summary and recent events rather than every original turn; use `includeSummarisedEvents` when requesting the underlying session history.
 
 Local capture derives the project namespace from the project folder name and a hash of its path, unless overridden in configuration. It does not automatically store a ChatGPT Project name or ID. The current `memory_search` tool supports semantic queries scoped by owner and namespace, but does not expose date-range filters or automatically reconstruct matching episodes. Capture timestamps and source session/turn identifiers are stored inside each captured record's JSON text; structured time filtering and grouping related prompts and responses into episodes would require additional implementation.
+
+## Custom development in the plugin
+
+This project adds application-side memory privacy guardrails before supported writes reach Redis: per-project redaction categories, custom patterns and sensitive fields, prompt/response saving controls, and optional context-field exclusions. These controls are already implemented in the plugin; you configure them rather than build them yourself. Existing protections remain the default; the configured Redis API key is always redacted. Applications using Redis Agent Memory directly need their own filtering for equivalent protection. See [guardrail configuration](docs/automatic-capture.md#configure-memory-guardrails) and [security notes](#security-notes).
 
 ## Use cases
 
