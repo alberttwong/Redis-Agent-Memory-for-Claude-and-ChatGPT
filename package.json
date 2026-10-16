@@ -21,6 +21,7 @@
     "build": "tsc -p tsconfig.json",
     "check": "tsc -p tsconfig.json --noEmit",
     "start": "node dist/src/index.js",
+    "memory:configure-summarization": "npm run build && node dist/src/store-management-cli.js",
     "capture:status": "zsh scripts/capture.sh status",
     "capture:flush": "zsh scripts/capture.sh flush",
     "capture:install": "npm run build && node dist/src/capture-cli.js install",
