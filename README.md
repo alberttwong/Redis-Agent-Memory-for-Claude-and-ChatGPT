@@ -92,13 +92,18 @@ sequenceDiagram
     actor User
     participant Claude as Claude Desktop
     participant ChatGPT as ChatGPT Desktop
+    participant Memory as Redis Agent Memory Server
 
     User->>Claude: Help me decide how checkout retries should work
     Claude-->>User: Let's allow up to seven attempts
     User->>Claude: Remember that decision and save what to do next
+    Claude->>Memory: Save decision and next steps
+    Memory-->>Claude: Progress saved
     Claude-->>User: Saved. Next step is to implement the seven-attempt limit
     Note over User,ChatGPT: Later, the user switches to ChatGPT
     User->>ChatGPT: Pick up the checkout retry task from my saved progress
+    ChatGPT->>Memory: Retrieve saved checkout retry progress
+    Memory-->>ChatGPT: Seven attempts agreed; implementation is next
     ChatGPT-->>User: We agreed on seven attempts. Implementation is next
     User->>ChatGPT: Let's continue from there
 ```
