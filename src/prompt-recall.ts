@@ -1,3 +1,4 @@
+import { recallNamespaces } from "./project-identity.js";
 import { emptyRecall, memoryIds, type RecallDiagnostic } from "./diagnostics.js";
 import { redactCaptureText, type CaptureConfig } from "./capture.js";
 
@@ -11,7 +12,7 @@ export const promptContextLimit = 5400;
 
 export async function recallPrompt(
   config: CaptureConfig,
-  scope: { owner: string; namespace: string },
+  scope: { owner: string; namespace: string; legacyNamespaces?: string[] },
   prompt: string | undefined,
   search: PromptSearch,
   secrets: string[] = [],
@@ -23,8 +24,8 @@ export async function recallPrompt(
   const diagnostic = emptyRecall("unavailable", true);
   diagnostic.queryTruncated = redacted.length > promptQueryLimit;
   let matches: Awaited<ReturnType<PromptSearch>>;
-  try { matches = await search({ text, owner_id: scope.owner, namespace: scope.namespace,
-    limit: config.promptRecallLimit, similarity_threshold: config.promptRecallThreshold });
+  try { matches = await recallNamespaces(scope, config.promptRecallLimit, namespace => search({ text, owner_id: scope.owner, namespace,
+    limit: config.promptRecallLimit, similarity_threshold: config.promptRecallThreshold }));
   } catch (error) { observe(diagnostic); throw error; }
   diagnostic.count = matches.length;
   diagnostic.ids = memoryIds(matches, secrets);

@@ -22,6 +22,7 @@ import {
 import { loadMemoryEnvironment, shareProjectSettings } from "./shared-settings.js";
 import { defaultOwnerId } from "./identity.js";
 import { loadProjectGuardrails, guardrailInstructions } from "./privacy.js";
+import { recallNamespaces } from "./project-identity.js";
 import { recallPrompt } from "./prompt-recall.js";
 
 const mode = process.argv[2] ?? "hook";
@@ -394,7 +395,7 @@ async function main() {
     config = captureConfigSchema.parse({ ...config, guardrails });
     if (mode === "status") {
       const resolved = scope(config, projectRoot, source, {hook_event_name: "SessionStart", session_id: "status"});
-      output({ environment, enabled: config.enabled, guardrails, ownerId: resolved.owner, namespace: resolved.namespace, source, pending: await queueDepth(), diagnostics: await diagnosticStatus() });
+      output({ environment, enabled: config.enabled, guardrails, ownerId: resolved.owner, namespace: resolved.namespace, legacyNamespaces: resolved.legacyNamespaces, source, pending: await queueDepth(), diagnostics: await diagnosticStatus() });
       return;
     }
     if (!config.enabled && mode !== "check") { if (mode === "hook") output({}); return; }
@@ -495,7 +496,7 @@ async function main() {
     if (input?.hook_event_name === "SessionStart") {
       const resolved = scope(config, projectRoot, source, input);
       if (recallDiagnostic) recallDiagnostic.attempted = config.recallLimit > 0;
-      const memories = config.recallLimit ? await storage.recall(resolved.owner, resolved.namespace, config.recallLimit) : [];
+      const memories = config.recallLimit ? await recallNamespaces(resolved, config.recallLimit, namespace => storage.recall(resolved.owner, namespace, config.recallLimit)) : [];
       if (config.recallLimit) recallDiagnostic = { ...emptyRecall(memories.length ? "returned" : "empty", true),
         count: memories.length, ids: memoryIds(memories, secrets),
         context: memories.length ? "prepared" : "none", queryTruncated: false,

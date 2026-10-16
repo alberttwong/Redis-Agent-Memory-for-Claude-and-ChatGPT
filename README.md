@@ -69,11 +69,22 @@ Redis Agent Memory provides:
 - Semantic, keyword, and hybrid retrieval with metadata filters.
 - Python, TypeScript, and REST APIs.
 - Compatibility with any model provider or agent framework.
-- This project adds configurable memory privacy guardrails: per-project redaction categories, custom patterns and sensitive fields, prompt/response saving controls, and optional context-field exclusions. Existing protections remain the default; the configured Redis API key is always redacted. See [guardrail configuration](docs/automatic-capture.md#configure-memory-guardrails) and [security notes](#security-notes).
+- Redis provides sensitive-data exclusions that guide automatic extraction away from information that should not be retained in long-term memory. These model instructions are best effort and do not apply to directly created long-term memories. See [Redis's exclusion behavior and limitations](https://redis.io/docs/latest/develop/ai/context-engine/agent-memory/python-sdk-quickstart/).
 
 See the [Redis Agent Memory documentation](https://redis.io/docs/latest/develop/ai/context-engine/agent-memory/) for the service's full capabilities. This bridge currently exposes semantic search through `memory_search`; keyword and hybrid search are not exposed as separate bridge tools. When automatic summarization is enabled, session retrieval can return a summary and recent events rather than every original turn; use `includeSummarisedEvents` when requesting the underlying session history.
 
 Local capture derives the project namespace from the project folder name and a hash of its path, unless overridden in configuration. It does not automatically store a ChatGPT Project name or ID. The current `memory_search` tool supports semantic queries scoped by owner and namespace, but does not expose date-range filters or automatically reconstruct matching episodes. Capture timestamps and source session/turn identifiers are stored inside each captured record's JSON text; structured time filtering and grouping related prompts and responses into episodes would require additional implementation.
+
+## Custom development in the plugin
+
+The plugin adds the following capabilities around Redis Agent Memory:
+
+- **Memory privacy guardrails:** The plugin filters supported writes before they reach Redis, using configurable redaction categories, custom patterns, sensitive fields, saving controls, and context-field exclusions. Default protections remain enabled unless configured otherwise, and the configured Redis API key is always redacted. These controls are built into the plugin; applications that use Redis Agent Memory directly need their own filtering for equivalent protection. See [guardrail configuration](docs/automatic-capture.md#configure-memory-guardrails) and [security notes](#security-notes).
+- **Automatic prompt capture:** The plugin saves submitted prompts and available final responses from supported local Claude Code and Codex sessions after project setup and hook activation. A local retry queue preserves pending writes during outages. See [automatic capture](docs/automatic-capture.md).
+- **Automatic context injection:** The plugin searches Redis for relevant memories within the configured owner and project scope before the model processes each submitted prompt. It supplies matching memories as historical context labeled as untrusted data. The `promptRecall` setting controls these searches separately from saving. See [automatic retrieval and controls](docs/automatic-capture.md#relevant-memories-before-each-prompt).
+- **Cross-agent handoff checkpoints:** The bridge's checkpoint tools save the current goal, completed work, blockers, and next steps so another connected assistant can resume the task. See [save and resume with the bridge](docs/handoff-workflow.md#save-and-resume-with-the-bridge).
+- **Conversation history imports:** The import tools load existing Claude and ChatGPT exports with previews, configurable redaction, and retries for pending writes. See [import existing memories](docs/importing-memories.md).
+- **Shared connection settings:** The plugin reuses Redis credentials across worktrees and checkouts while preserving each project's configuration and memory scope. See [shared settings and project overrides](docs/automatic-saving-operations.md#reuse-redis-settings-across-worktrees-and-checkouts).
 
 ## Use cases
 
@@ -175,7 +186,7 @@ The end-to-end test checks that progress saved through the Claude package can be
 - Bridge session reads use `sessionId` directly; owner and namespace are not additional read filters. Use a unique task session ID in a shared store and service-enforced access controls where needed.
 - By default, omit passwords, credentials, and sensitive personal information (PII) from memory, metadata, checkpoints, and identifiers. Project owners can [configure guardrails](docs/automatic-capture.md#configure-memory-guardrails); keep only the task context needed for future work. The configured Redis API key is always redacted.
 - The bridge, capture hooks, and importers apply the project guardrails before writes; capture also filters new local queue entries and rechecks queued text before upload. Pattern matching cannot detect every name, address, or sensitive context. Disable automatic capture for sensitive conversations. Native endpoints used outside this bridge do not run its filter. Existing stored records are not retroactively cleaned. Older queue files are checked against the current policy when retried.
-- Redis semantic exclusions are advisory and do not replace these privacy guardrails.
+- Redis semantic exclusions guide automatic extraction; they do not guarantee exclusion, prevent sensitive session content from reaching the extraction model provider, or filter directly created long-term memories. This project's capture and imports create long-term `message` records directly, so they rely on the local privacy guardrails described above.
 - The optional bridge exposes no delete tool. The recorded native endpoint exposes `delete_long_term_memories`; use it only for intended memory removals.
 
 ## Documentation map

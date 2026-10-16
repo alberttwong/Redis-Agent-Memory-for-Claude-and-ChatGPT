@@ -38,7 +38,7 @@ Codex command hooks run with local-only orchestration. They are not supported in
 | Identifier | Default | Override |
 | --- | --- | --- |
 | Owner | `user-` plus a hash of the hostname and OS username | `MEMORY_CAPTURE_OWNER_ID`, then `ownerId` in `.memory-capture.json`, then `AGENT_MEMORY_OWNER_ID` |
-| Namespace | This repository explicitly uses `redis-agent-memory-mcp`; otherwise a project-directory slug plus path hash | `namespace` in `.memory-capture.json` |
+| Namespace | This repository explicitly uses `redis-agent-memory-mcp`; otherwise a canonical Git remote hash | `namespace` in `.memory-capture.json` |
 | Session | Hash of client name and its conversation/session ID | `sessionId` in `.memory-capture.json` for an explicitly shared task |
 | Memory ID | Hash including owner, namespace, session, client, turn identity, role, and chunk number | Generated automatically |
 
@@ -46,7 +46,7 @@ The owner is a local identity, not a claim about the signed-in OpenAI or Anthrop
 
 Two people can use the same project namespace. Recall always combines **owner AND namespace**, and memory IDs include the owner, so their normal retrieval and writes stay distinct. These are organizational filters, not a security boundary: a shared store key grants the same service access to its holders. Use service-enforced access controls or separate stores/keys for isolation between untrusted users. Do not commit a shared `ownerId` if each contributor should retain their own identity.
 
-Project namespaces must match across clones if cross-computer recall is desired. A different checkout path gets a different fallback namespace; configure the same explicit project namespace where needed. Separate conversations have separate sessions, while startup recall searches the owner's project namespace across conversations, including records captured by the other client.
+Automatic namespaces match across worktrees and differently named clones when their selected remote identifies the same repository. Cross-computer recall also requires the same owner, store, and credentials; the default owner includes the hostname, so set a stable private `ownerId` when moving between machines. Separate conversations have separate sessions, while startup recall searches the owner's project namespace across conversations, including records captured by the other client.
 
 ## Project configuration
 
@@ -62,6 +62,26 @@ A minimal configuration for matching scope across checkouts is:
 Keep the same explicit namespace in each checkout that should share context. Set a stable owner in private settings when moving between machines. Capture owner, namespace, and explicit session IDs accept 1–64 letters, numbers, or hyphens. Do not use email addresses or secrets as identifiers.
 
 `recallLimit` accepts 0–20 (default 6). `promptRecallLimit` accepts 0–20 (default 5), and `promptRecallThreshold` accepts 0–1 (default 0.7). Set `recallLimit: 0` to disable startup recent-memory retrieval; `promptRecall: false` controls the separate per-prompt search.
+
+### Automatic repository identity and compatibility
+
+Without an explicit `namespace`, capture and import defaults use `repo-` plus a hash of the canonical Git remote identity. Git is inspected locally; resolving identity does not contact the remote. The remote named `origin` wins; if absent, the alphabetically first remote name wins. Adding or changing that selected remote can change the namespace. Forks with different origins remain separate even when they share an upstream. To intentionally share fork context, set the same explicit namespace; to separate worktrees of one repository, set different explicit namespaces.
+
+HTTPS, HTTP, SSH (including `git@host:path`), and Git transport URLs normalize to lowercase host plus repository path, removing credentials, ports, query strings, fragments, trailing slashes, and a final `.git`. Repository path case is preserved for case-sensitive hosts. Ports intentionally do not distinguish repositories; use explicit namespaces for separate services on the same host and path. Remote URLs are never recorded in captured memory. Local/file remotes and unrecognized URLs use the local fallback.
+
+Repositories without a usable selected remote use `local-` plus a hash of the absolute shared Git directory. This keeps a main checkout and its linked worktrees together, but cannot identify unrelated clones or machines. Non-Git folders (or unavailable Git) retain the directory slug plus path hash. Distinct repositories with the same folder name remain isolated. Capture records `repoPath` from the hook working directory (or project root), independently of namespace; existing `omitFields: ["repoPath"]` guardrails can remove it.
+
+New writes use the resolved namespace. Startup and prompt recall also read the old path-derived namespace for the current project root and, for standard linked worktrees, the main checkout. Results prefer the new scope, deduplicate identical text, and fill only the configured recall limit. Existing queued writes keep their original namespace and IDs. No records are copied or deleted.
+
+Old namespaces from other paths or machines cannot be inferred from a remote. Before moving or deleting an old checkout, run its old CLI's `status` and retain the namespace. Add it to `.memory-capture.json` to keep those records discoverable:
+
+```json
+{
+  "legacyNamespaces": ["old-checkout-012345abcdef"]
+}
+```
+
+Up to 20 aliases are accepted. `status` reports the active namespace and compatibility aliases. An explicit `namespace` disables automatic path aliases, preserving intentional project separation; only explicitly configured `legacyNamespaces` are then searched. You can also pin the old namespace as `namespace` to continue writing there. Compatibility reads retain the same owner filter; a previous machine's owner must be configured separately. Import dry runs use the same new default namespace, but do not migrate old records.
 
 Capture does not read `AGENT_MEMORY_NAMESPACE_ID` or `AGENT_MEMORY_NAMESPACE` for its namespace. Those are bridge settings. See [scope compatibility](handoff-workflow.md#scope-compatibility) before mixing capture, imports, and bridge checkpoints.
 

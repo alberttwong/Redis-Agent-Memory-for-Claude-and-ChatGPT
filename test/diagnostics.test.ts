@@ -81,3 +81,24 @@ test("recall diagnostics expose counts, safe IDs, both truncations, empty and un
   assert.equal(observations[2].outcome, "unavailable");
   assert(!JSON.stringify(observations).includes("private"));
 });
+
+test("marker verification and recall diagnostics preserve legacy namespace fallback", async () => {
+  const root = await mkdtemp(join(tmpdir(), "ram-check-legacy-"));
+  const marker = checkMarker();
+  const resolved = {owner: "person", namespace: "primary", legacyNamespaces: ["legacy"]};
+  const storage: CaptureTransport = {create: async () => {throw new Error("verify must not write");}, recall: async () => []};
+  try {
+    for (const location of ["primary", "legacy"]) {
+      const searched: string[] = [];
+      const result = await verifyCheck(config, resolved, marker, join(root, "queue"), storage, async args => {
+        searched.push(args.namespace);
+        assert.equal(args.owner_id, "person");
+        return args.namespace === location ? [{id: "legacy-marker", text: JSON.stringify({content: marker})}] : [];
+      }, [], true);
+      assert.equal(result.ok, true);
+      assert.equal(result.recall.outcome, "returned");
+      assert.deepEqual(result.recall.ids, ["legacy-marker"]);
+      assert.deepEqual(searched, ["primary", "legacy"]);
+    }
+  } finally { await rm(root, {recursive: true, force: true}); }
+});

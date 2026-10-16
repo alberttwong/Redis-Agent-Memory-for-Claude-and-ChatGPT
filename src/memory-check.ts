@@ -19,7 +19,7 @@ export async function queueCheck(config: CaptureConfig, root: string, source: st
   await enqueue(queue, entry, secrets, config.guardrails);
   return scope(config, root, source, input);
 }
-export async function verifyCheck(config: CaptureConfig, resolved: { owner: string; namespace: string }, marker: string,
+export async function verifyCheck(config: CaptureConfig, resolved: { owner: string; namespace: string; legacyNamespaces?: string[] }, marker: string,
   queue: string, storage: CaptureTransport, search: PromptSearch, secrets: string[], verifyOnly = false) {
   let delivery: "acknowledged" | "pending" | "not-tested" = verifyOnly ? "not-tested" : "pending";
   if (!verifyOnly) {
@@ -36,7 +36,7 @@ export async function verifyCheck(config: CaptureConfig, resolved: { owner: stri
         const exact = matches.filter(memory => {
           try { return JSON.parse(memory.text).content === marker; } catch { return false; }
         });
-        markerFound = exact.length > 0;
+        markerFound ||= exact.length > 0;
         return exact;
       }, secrets, value => { recall = value; });
   } catch { /* Report unavailable, never raw server errors. */ }
