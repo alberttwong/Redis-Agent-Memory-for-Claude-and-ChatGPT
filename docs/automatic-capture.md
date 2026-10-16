@@ -2,6 +2,8 @@
 
 [Back to README](../README.md)
 
+For capture/delivery timestamps, scoped recall evidence, troubleshooting, and a cross-client marker check, see [Memory diagnostics](memory-diagnostics.md).
+
 The project hooks save submitted prompts and final assistant responses to Redis without asking the user to supply memory IDs, an owner, a namespace, or a session on each turn. `SessionStart` fetches recent project memories and adds them as context for the next agent.
 
 For routine status checks, retries, installation in another project, and removal, see [Automatic saving operations](automatic-saving-operations.md).

@@ -2,6 +2,8 @@
 
 [Back to README](../README.md)
 
+For capture/delivery timestamps, scoped recall evidence, troubleshooting, and a cross-client marker check, see [Memory diagnostics](memory-diagnostics.md).
+
 The capture handler runs locally with Node.js 20.12+ and is enabled by default by `ram-capture install`. It connects to Redis's native MCP endpoint directly; registering the optional stdio bridge is not required.
 
 The owner defaults to a hash of the OS account and hostname, the namespace defaults to a hash of the canonical Git remote identity (with local fallbacks; see [identity and migration rules](automatic-capture.md#automatic-repository-identity-and-compatibility)), sessions derive from each client conversation, and memory IDs are generated automatically. Set `AGENT_MEMORY_OWNER_ID` in the private `.env` only when the same identity must be shared across computers.

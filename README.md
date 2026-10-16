@@ -6,6 +6,8 @@ Give Claude Desktop and ChatGPT Desktop a durable project memory backed by Redis
 
 In a local Codex chat inside ChatGPT Desktop, submitted prompts and available final responses are saved automatically and retried after outages. For Claude Desktop, start with **Add marketplace** and configure memory using the browser setup form and project setup skill in a local Claude Code session. Configured local Claude Code projects also save prompts and available final responses automatically. Ordinary Desktop Chat uses the MCPB extension. Both provide tools to search memory, record important work, and save checkpoints. Existing Claude and ChatGPT exports can also be imported into the same Redis memory store.
 
+For capture/delivery timestamps, scoped recall evidence, troubleshooting, and a cross-client marker check, see [Memory diagnostics](docs/memory-diagnostics.md).
+
 ## When to use it
 
 - Continue a project in a new chat without restating earlier decisions.
