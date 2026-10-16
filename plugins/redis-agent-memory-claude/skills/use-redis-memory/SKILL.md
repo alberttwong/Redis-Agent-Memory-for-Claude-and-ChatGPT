@@ -13,7 +13,7 @@ The plugin includes automatic prompt and available final-response capture for co
 
 If the tools are unavailable, explain that the bundled local server needs a supported Cowork or Claude Code session and configured Redis credentials. For the browser setup form, use a local Claude Code session on This computer. For ordinary Claude Desktop Chat, direct the user to the project's MCPB extension installation guide at https://github.com/alberttwong/redis-agent-memory-mcp/blob/main/docs/quickstart-claude-desktop.md. Do not ask the user to paste an API key into chat.
 
-Use `memory_search` for captured/imported messages; `resume_context` reads ordered session history and an explicit checkpoint, with semantic recall alongside them. Capture/import does not create that session history or checkpoint. Match the owner and namespace field before searching, and use task session IDs unique within a shared store because ordered session reads are addressed by session ID alone.
+Use `memory_search` for captured/imported messages; `resume_context` reads ordered session history and an explicit checkpoint, with semantic recall alongside them. New automatic conversation capture creates ordered session history, but does not create a checkpoint; imports remain direct-only. Use capture’s derived session ID rather than its task alias. Match the owner and namespace field before searching, and use task session IDs unique within a shared store because ordered session reads are addressed by session ID alone.
 
 
 ## Choosing tools and controlling context

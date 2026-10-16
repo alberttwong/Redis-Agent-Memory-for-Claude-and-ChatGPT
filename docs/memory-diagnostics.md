@@ -67,3 +67,7 @@ For a deterministic rehearsal without credentials or real writes, `npm test` inc
 ## Expanded lifecycle dispatch
 
 `diagnostics.hookDispatch` reports the last observed invocation for each registered event, separately from `lastCapture` and `lastDelivery`. An observed hook with no acknowledged delivery suggests a queue/credential/network issue. Unknown dispatch is not proof of an unsupported host: check the event in `/hooks`, trust, project selection, policy, and host version. A zero count means that invocation queued no records (for example, a memory tool was excluded). Synthetic handler tests also create these diagnostics; only a real host-triggered invocation establishes host dispatch. Test actual compaction separately from tool activity. See [expanded lifecycle verification](automatic-capture.md#verification-and-host-support).
+
+## Session delivery and extraction
+
+`sessionDelivery` records the last acknowledged/reconciled session write; `sessionFailure` records an incomplete attempt. Compare their timestamps because a historical failure remains visible after recovery. `lastDelivery` refers to compatibility long-term writes, which can still be pending after session delivery succeeds. Pending queue files include partial dual-destination work. `extraction: "not-verified"` is deliberate: an append acknowledgment cannot prove extraction completed. See [reconciliation and extraction verification](session-capture.md).

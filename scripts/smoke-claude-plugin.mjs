@@ -47,6 +47,8 @@ try {
     return JSON.parse(result.stdout);
   };
   assert.equal(cli("configure").environment.projectEnvExists, true);
+  const captureConfigPath = join(project, ".memory-capture.json");
+  await writeFile(captureConfigPath, JSON.stringify({ ...JSON.parse(await readFile(captureConfigPath, "utf8")), sessionCapture: false }));
   assert.equal(cli("doctor", "--plugin").ok, true, "Browser credentials must also configure capture");
   const hooks = JSON.parse(await readFile(join(installed, "hooks/hooks.json"), "utf8")).hooks;
   const hook = (event, fields = {}, context = false) => {

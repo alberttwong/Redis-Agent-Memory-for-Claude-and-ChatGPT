@@ -1,6 +1,6 @@
 {
   "name": "redis-agent-memory",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "description": "Recall project context and save agent handoff checkpoints with Redis Agent Memory.",
   "author": {
     "name": "Albert Wong",

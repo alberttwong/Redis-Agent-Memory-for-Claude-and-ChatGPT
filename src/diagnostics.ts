@@ -14,8 +14,9 @@ const recallSchema = z.object({
 export type RecallDiagnostic = z.infer<typeof recallSchema>;
 const recordSchema = z.object({
   at: z.string().datetime(), owner: z.string(), namespace: z.string(), source: z.string(),
-  kind: z.enum(["capture", "delivery", "prompt-recall", "startup-recall", ...claudeCaptureEvents]),
+  kind: z.enum(["capture", "delivery", "session-delivery", "session-failure", "prompt-recall", "startup-recall", ...claudeCaptureEvents]),
   count: z.number().int().nonnegative().optional(), recall: recallSchema.optional(),
+  reason: z.enum(["uncertain", "changed", "conflict", "unavailable", "incomplete"]).optional(),
 });
 type Record = z.infer<typeof recordSchema>;
 export type DiagnosticScope = Pick<Record, "owner" | "namespace" | "source">;
@@ -25,7 +26,7 @@ function path(directory: string, scope: DiagnosticScope, kind: Record["kind"]) {
 }
 // Explicit metadata fields only: never persist prompts, results, raw exceptions, or headers.
 export async function recordDiagnostic(directory: string, scope: DiagnosticScope,
-  kind: Record["kind"], detail: Pick<Record, "count" | "recall"> = {}): Promise<void> {
+  kind: Record["kind"], detail: Pick<Record, "count" | "recall" | "reason"> = {}): Promise<void> {
   try {
     const record = recordSchema.parse({ at: new Date().toISOString(), ...scope, kind, ...detail });
     await mkdir(directory, { recursive: true, mode: 0o700 });
@@ -48,6 +49,8 @@ export async function readDiagnostics(directory: string, scope: DiagnosticScope)
     }
   };
   return { scope, lastCapture: await read("capture"), lastDelivery: await read("delivery"),
+    sessionDelivery: await read("session-delivery"), sessionFailure: await read("session-failure"),
+    extraction: "not-verified", extractionEvidence: "A session acknowledgment proves delivery only; extraction requires configured service behavior and independent scoped search evidence.",
     promptRecall: await read("prompt-recall"), startupRecall: await read("startup-recall"),
     hookDispatch: Object.fromEntries(await Promise.all((scope.source === "claude" ? claudeCaptureEvents : codexCaptureEvents)
       .map(async event => [event, await read(event)]))),

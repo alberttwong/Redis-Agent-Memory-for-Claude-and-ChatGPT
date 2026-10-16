@@ -36,7 +36,7 @@ globalThis.fetch = async (_url, options) => {
 };`);
   const project = join(root, "project");
   await mkdir(project);
-  await writeFile(join(project, ".memory-capture.json"), JSON.stringify({ownerId: "test-person", namespace: "test-project"}));
+  await writeFile(join(project, ".memory-capture.json"), JSON.stringify({sessionCapture: false, ownerId: "test-person", namespace: "test-project"}));
   const clients = [
     ["codex", resolve("plugins/redis-agent-memory/server/capture-cli.js")],
     ["claude", resolve("plugins/redis-agent-memory-claude/server/capture-cli.mjs")],

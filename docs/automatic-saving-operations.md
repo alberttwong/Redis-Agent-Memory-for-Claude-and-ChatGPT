@@ -71,7 +71,7 @@ For recovery, retain `.memory-capture/queue/` and the watcher's `.memory-capture
 
 Run `ram-capture uninstall` or `npm run capture:uninstall` to remove only the installer-managed hooks. Local configuration, credentials, and queued data are deliberately preserved.
 
-For retry behavior, identity overrides, supported events, and implementation details, see the [automatic capture guide](automatic-capture.md). Earlier project validation covered prompt delivery, final-response capture, retry, and cross-client recall using hook payloads; it does not certify hook activation in your app. Records use long-term-memory type `message`, not Redis's ordered session-memory API.
+For retry behavior, identity overrides, supported events, and implementation details, see the [automatic capture guide](automatic-capture.md). Earlier project validation covered prompt delivery, final-response capture, retry, and cross-client recall using hook payloads; it does not certify hook activation in your app. New automatic capture writes ordered sessions and compatibility long-term `message` records. Imports and older queues remain direct-only; see [session capture and recovery](session-capture.md).
 
 The recorded native-tool inventory and direct cross-agent workflow are documented separately in [Native Redis Agent Memory tools](native-tools.md).
 

@@ -26,6 +26,9 @@ import { loadProjectGuardrails, guardrailInstructions } from "./privacy.js";
 import { recallNamespaces } from "./project-identity.js";
 import { recallPrompt } from "./prompt-recall.js";
 import { codexCaptureEvents, claudeCaptureEvents } from "./hook-observations.js";
+import { AgentMemory } from "@redis-iris/agent-memory";
+import { digest } from "./capture.js";
+import { SessionCaptureError } from "./session-capture.js";
 
 const mode = process.argv[2] ?? "hook";
 const source = option("--client") ?? (process.argv[3]?.startsWith("--") ? undefined : process.argv[3]) ?? "codex";
@@ -144,6 +147,7 @@ async function main() {
       "  doctor     Check hook, config, credentials, and retry queue state",
       "  status     Print capture identity and pending queue count",
       "  flush      Retry queued writes",
+      "             --retry-uncertain permits retry after missing session readback (duplicate risk)",
       "  check      Save a non-sensitive marker through capture and verify scoped retrieval",
       "             --verify MARKER checks from another client without saving again",
       "             --client codex|claude selects the diagnostic source client",
@@ -457,7 +461,7 @@ async function main() {
   const store = process.env.AGENT_MEMORY_STORE_ID;
   if (!key || !base || !store) throw new Error("Capture credentials are not configured");
   const endpoint = new URL(`/v1/stores/${encodeURIComponent(store)}/mcp`, base);
-  if (endpoint.protocol !== "https:") throw new Error("Capture requires an HTTPS memory endpoint");
+  if (endpoint.protocol !== "https:" || endpoint.username || endpoint.password) throw new Error("Capture requires an HTTPS memory endpoint without URL credentials");
   const client = new Client({name: "redis-prompt-capture", version: "0.1.7"});
   const deadline = AbortSignal.timeout(20000);
   const transport = new StreamableHTTPClientTransport(endpoint, {
@@ -465,10 +469,23 @@ async function main() {
     fetch: (url, options) => fetch(url, {...options, signal: AbortSignal.any([deadline, AbortSignal.timeout(8000)])}),
   });
   try {
-    await client.connect(transport);
+    let nativeConnection: Promise<void> | undefined;
+    const connectNative = () => nativeConnection ??= client.connect(transport);
+    // Suppress SDK debug logging even if the parent enabled verbose diagnostics:
+    // its low-level request logger can include authorization headers and content.
+    const sessionClient = new AgentMemory({ serverURL: base, storeId: store, apiKey: key,
+      debugLogger: { log() {}, group() {}, groupEnd() {} } });
+    const requestOptions = () => ({ retries: { strategy: "none" as const }, redirect: "error" as const,
+      signal: AbortSignal.any([deadline, AbortSignal.timeout(6000)]) });
     const storage: CaptureTransport = {
-      create: async memories => unpack(await client.callTool({name: "create_long_term_memories", arguments: {memories}})),
+      destinationId: digest(JSON.stringify([endpoint.origin, store])),
+      session: {
+        append: request => sessionClient.addSessionEvent(request, requestOptions()),
+        read: session => sessionClient.getSessionMemory(session, true, requestOptions()),
+      },
+      create: async memories => { await connectNative(); return unpack(await client.callTool({name: "create_long_term_memories", arguments: {memories}})); },
       recall: async (owner, namespace, limit) => {
+        await connectNative();
         const result = unpack(await client.callTool({name: "search_long_term_memory", arguments: {
           owner_id: owner, namespace, topics: ["auto-capture"], limit,
           sort_by: "updatedAt", sort_order: "desc",
@@ -478,6 +495,7 @@ async function main() {
       },
     };
     const search = async (args: Parameters<import("./prompt-recall.js").PromptSearch>[0]) => {
+      await connectNative();
       const result = unpack(await client.callTool({ name: "search_long_term_memory", arguments: args }, undefined, { timeout: 6000 }));
       if (!Array.isArray(result.memories)) throw new Error("Missing search results");
       return result.memories;
@@ -500,7 +518,8 @@ async function main() {
       }
     }
     let result: Awaited<ReturnType<typeof flush>> = { sent: 0, pending: 0 };
-    try { result = await flush(queue, storage, secrets, guardrails, config?.observations); }
+    try { result = await flush(queue, storage, secrets, guardrails, config?.observations,
+      config ? { ...config, retryUncertain: mode === "flush" && process.argv.includes("--retry-uncertain") } : undefined); }
     catch (error) {
       if (mode !== "hook") throw error;
       // A delivery outage must not discard context already retrieved for this turn.
@@ -543,6 +562,7 @@ main().catch((error: unknown) => {
     const message = error instanceof Error ? error.message : String(error);
     console.error(`ram-capture flush failed: ${message}`);
   } else if (mode === "hook" || mode === "flush" || mode === "check") {
+    if (mode === "flush" && error instanceof SessionCaptureError) console.error(`Redis capture: ${error.message}`);
     // Do not print server errors, payloads, headers, credentials, or captured prompts.
     console.error("Redis capture: delivery incomplete; inspect status and retry with flush. For check, retry --verify MARKER after delivery; compare owner/namespace and service settings.");
   } else {

@@ -20,7 +20,7 @@ To search captured or imported messages through the bridge, use the same owner a
 
 The Claude browser form and MCPB extension default their legacy namespace to `claude-desktop`; project capture usually derives a different label. Set an explicit shared label when these workflows should search the same memories. Different stores, owners, or namespace fields can produce successful searches with no matching results.
 
-Choose a unique bridge `sessionId` per task within a shared store, for example `checkout-alex-retry-123`. Session reads take the session ID directly and do not add owner or namespace filters. Checkpoint IDs include owner, namespace, and session, but that does not isolate the ordered session history. Capture-generated conversation IDs and imported conversation IDs are separate from a manually chosen bridge task session.
+Choose a unique bridge `sessionId` per task within a shared store, for example `checkout-alex-retry-123`. Session reads take the session ID directly and do not add owner or namespace filters. Checkpoint IDs include owner, namespace, and session, but that does not isolate the ordered session history. New capture derives a Redis session ID from owner, namespace, and client/conversation identity. An explicit `sessionId` in `.memory-capture.json` is a task alias shared across clients within that owner/project; it is hashed rather than used literally. Use the resolved session ID printed by startup recall or a capture record’s `session_id` with `memory_get_session` and `resume_context`. Imports and manually chosen bridge sessions remain separate. See [session capture](session-capture.md).
 
 ## Save and resume with the bridge
 
