@@ -13,6 +13,8 @@ The plugin includes automatic prompt and available final-response capture for co
 
 If the tools are unavailable, explain that the bundled local server needs a supported Cowork or Claude Code session and configured Redis credentials. For the browser setup form, use a local Claude Code session on This computer. For ordinary Claude Desktop Chat, direct the user to the project's MCPB extension installation guide at https://github.com/alberttwong/redis-agent-memory-mcp/blob/main/docs/quickstart-claude-desktop.md. Do not ask the user to paste an API key into chat.
 
+Use `memory_search` for captured/imported messages; `resume_context` reads ordered session history and an explicit checkpoint, with semantic recall alongside them. Capture/import does not create that session history or checkpoint. Match the owner and namespace field before searching, and use task session IDs unique within a shared store because ordered session reads are addressed by session ID alone.
+
 ## Memory privacy guardrails
 
 Never store passwords, API keys, access tokens, private keys, raw environment files, or sensitive personal information (PII), including contact details, government IDs, financial details, and medical information. Apply this rule to memory text, metadata, checkpoints, imports, and identifiers. Omit sensitive details or use placeholders; when unsure, leave the detail out. Automatic redaction is a fallback and cannot detect all sensitive information.

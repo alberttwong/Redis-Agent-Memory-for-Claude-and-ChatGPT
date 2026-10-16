@@ -18,11 +18,11 @@ Start in Claude Desktop and add this repository as a plugin marketplace:
 8. Let the setup skill configure automatic saving for your current project and run its plugin-aware doctor. It creates a missing `.memory-capture.json` with capture enabled, preserves existing settings, and reuses the browser connection. No `.env` edits are required.
 9. Start a fresh local Claude Code session in that project. Check `/hooks` for the plugin's `SessionStart`, `UserPromptSubmit`, and `Stop` hooks and allow them as required. Send an ordinary test prompt, then ask Claude to retrieve it from Redis to confirm capture and delivery.
 
-Automatic saving requires Claude plugin **v0.1.5 or later**. Refresh the marketplace and update an existing installation before running setup again. A successful doctor checks configuration; retrieving the test prompt verifies delivery. Hook events do not capture intermediate messages, tool output, or hidden reasoning. Turn capture off with `enabled: false` in `.memory-capture.json`; queued entries remain local until capture is enabled and retried. See [automatic capture](automatic-capture.md#claude-code-marketplace-default).
+Automatic saving requires Claude plugin **v0.1.5 or later**. Refresh the marketplace and update an existing installation before running setup again. A successful doctor checks configuration; retrieving the test prompt verifies delivery. Hook events do not capture intermediate messages, tool output, or hidden reasoning. Turn capture off with `enabled: false` in `.memory-capture.json`; queued entries remain local. Re-enabling capture resumes automatic retries; an explicit CLI `flush` can still deliver them while capture is disabled. See [automatic capture](automatic-capture.md#claude-code-marketplace-default).
 
 The plugin bundles its server and runtime dependencies, so installation does not require npm or a source build. The setup form runs on the same computer as the local server. A cloud or isolated Cowork VM may not expose its loopback address to your browser; use a local Claude Code session for this setup flow.
 
-For Claude Code, you can also install with:
+For Claude Code v2.1.275 or later, you can also add the marketplace and open the plugin installation in one command ([official installation guide](https://code.claude.com/docs/en/discover-plugins#add-a-marketplace-and-install-in-one-command)):
 
 ```text
 /plugin install redis-agent-memory --marketplace alberttwong/redis-agent-memory-mcp
@@ -31,6 +31,12 @@ For Claude Code, you can also install with:
 A plugin's local MCP server runs in **Cowork and Claude Code**. For ordinary **Claude Desktop Chat**, install the desktop extension using the steps below. See [Claude's explanation of plugin and connector availability](https://support.claude.com/en/articles/11725091-when-to-use-desktop-and-web-connectors).
 
 If **Add marketplace** reports “no manifest found at .claude-plugin/marketplace.json”, the selected repository revision does not contain the Claude marketplace catalog. Refresh the marketplace after updating to a revision that includes it. The ChatGPT marketplace at `.agents/plugins/marketplace.json` is a separate format.
+
+## Automatic context for each prompt
+
+After project setup and hook activation, each submitted prompt also triggers a search for relevant memories in your owner's project scope before the LLM processes it. Matches are supplied as historical context automatically; you do not need to request a memory search each time. This requires Claude plugin v0.1.6+, followed by a fresh local session. If Redis is unavailable, the chat continues and pending saves remain queued.
+
+To keep automatic saving while disabling these searches, set `promptRecall: false` in `.memory-capture.json`. See [retrieval limits, relevance threshold, and behavior](automatic-capture.md#relevant-memories-before-each-prompt).
 
 ## If installation did not ask for Redis credentials
 
@@ -74,7 +80,7 @@ cd redis-agent-memory-mcp
 npm ci
 ```
 
-Copy [`.env.example`](../.env.example) to `.env` and fill in the same Redis URL, store ID, and API key used by your plugin or extension. Set the owner and namespace to match if you configured them.
+Copy [`.env.example`](../.env.example) to `.env` and fill in the same Redis URL, store ID, and API key used by your plugin or extension. Match the owner and use `--namespace` for the capture/import label. Setting `AGENT_MEMORY_NAMESPACE_ID` in `.env` does not select the import namespace. If you want the bridge to search these records, follow [scope compatibility](handoff-workflow.md#scope-compatibility).
 
 Open Claude's memory settings and copy the editable memory into a Markdown or text file, or request a Claude data-export ZIP for conversation history. Preview the import first:
 
@@ -109,9 +115,3 @@ Uninstalling the plugin or extension does not delete memories stored in Redis or
 The MCPB extension cannot silently observe every Claude Desktop prompt and response. Ask Claude to save substantive work and checkpoints, or use a client with lifecycle hooks when every supported turn must be captured automatically.
 
 For status, CLI fallback, removal, and packaging details, see [Claude Desktop setup and limitations](claude-desktop.md). For all import flags and security behavior, see [Import existing memories](importing-memories.md).
-
-## Automatic context for each prompt
-
-After project setup and hook activation, each submitted prompt also triggers a search for relevant memories in your owner's project scope before the LLM processes it. Matches are supplied as historical context automatically; you do not need to request a memory search each time. This requires local ChatGPT plugin v0.1.5+ or Claude plugin v0.1.6+, followed by a fresh local session. If Redis is unavailable, the chat continues and pending saves remain queued.
-
-To keep automatic saving while disabling these searches, set `promptRecall: false` in `.memory-capture.json`. See [retrieval limits, relevance threshold, and behavior](automatic-capture.md#relevant-memories-before-each-prompt).

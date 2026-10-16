@@ -35,7 +35,7 @@ Remote connectors run from Anthropic's infrastructure. The SDK test verified the
 
 ## Codex Desktop
 
-Codex Desktop shares MCP configuration with the CLI and IDE extension on the same host. This connection adds agent-callable memory tools; [automatic saving](../README.md#quick-start) remains active independently through the project hooks.
+Codex Desktop shares MCP configuration with the CLI and IDE extension on the same host. This connection adds agent-callable memory tools; [automatic saving](automatic-capture.md) runs independently when project hooks are configured, active, and trusted.
 
 Codex Desktop provides **Settings → MCP servers → Add server** for supported server and authentication flows. The Redis deployment verified by this project uses a static API-key `Authorization` header, so the explicit `config.toml` route below remains the clearest setup and does not depend on that UI exposing a custom-header field.
 

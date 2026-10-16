@@ -11,6 +11,8 @@ Append substantive user and assistant events with `memory_append` when durable o
 
 This public profile is model-directed. It has no lifecycle hooks and must never claim that every prompt or response was captured automatically.
 
+Use `memory_search` for captured/imported messages; `resume_context` reads ordered session history and an explicit checkpoint, with semantic recall alongside them. Capture/import does not create that session history or checkpoint. Match the owner and namespace field before searching, and use task session IDs unique within a shared store because ordered session reads are addressed by session ID alone.
+
 ## Memory privacy guardrails
 
 Never store passwords, API keys, access tokens, private keys, raw environment files, or sensitive personal information (PII), including contact details, government IDs, financial details, and medical information. Apply this rule to memory text, metadata, checkpoints, imports, and identifiers. Omit sensitive details or use placeholders; when unsure, leave the detail out. Automatic redaction is a fallback and cannot detect all sensitive information.

@@ -6,7 +6,7 @@ Use the **repository marketplace** as the default installation option. Install R
 
 ## 1. Install from the repository marketplace (default)
 
-Register the repository as a marketplace source:
+With the Codex CLI installed, register the repository as a marketplace source:
 
 ```sh
 codex plugin marketplace add alberttwong/redis-agent-memory-mcp
@@ -14,9 +14,11 @@ codex plugin marketplace add alberttwong/redis-agent-memory-mcp
 
 Restart ChatGPT Desktop, open the **Plugins Directory**, select **Redis Agent Memory local plugins**, and install **Redis Agent Memory**. Review and trust its lifecycle hooks when prompted. The marketplace source must be this repository, not its `plugins/` subfolder.
 
+If `codex` is unavailable, install the CLI first or use the release ZIP option below. App labels can vary by version; use the local Codex surface with this computer as executor.
+
 The repository includes the server and capture CLI, so users do not need to clone, run npm, or build the project. Node.js is still required to run the plugin. After installation, open your own project folder for the configuration steps below.
 
-If you previously registered this source, refresh it after the fix is available:
+If you previously registered this source, refresh its repository snapshot:
 
 ```sh
 codex plugin marketplace upgrade redis-agent-memory-local
@@ -76,7 +78,13 @@ Start a **new local Codex chat in your project** after saving `.env` and trustin
 
 Check your Redis memory store for the new prompt to confirm delivery. A pending count of zero alone does not prove that a prompt was captured.
 
-Future supported turns in this project save automatically, and new local chats recall recent project context. Cloud-orchestrated Work chats do not run these local plugin hooks. If a plugin update changes its hook definitions, review and trust them again.
+Future supported turns in this project save automatically when the hooks run, and new local chats recall recent project context. Cloud-orchestrated Work chats do not run these local plugin hooks. If a plugin update changes its hook definitions, review and trust them again.
+
+## Automatic context for each prompt
+
+After project setup and hook activation, each submitted prompt also triggers a search for relevant memories in your owner's project scope before the LLM processes it. Matches are supplied as historical context automatically; you do not need to request a memory search each time. This requires local ChatGPT plugin v0.1.5+, followed by a fresh local session. If Redis is unavailable, the chat continues and pending saves remain queued.
+
+To keep automatic saving while disabling these searches, set `promptRecall: false` in `.memory-capture.json`. See [retrieval limits, relevance threshold, and behavior](automatic-capture.md#relevant-memories-before-each-prompt).
 
 ## Optional: Import older conversations
 
@@ -95,9 +103,3 @@ Uninstalling stops the plugin's hooks. It preserves memories in Redis, project c
 If you also installed project hooks separately, follow [Remove automatic saving](automatic-saving-operations.md#remove-automatic-saving) to remove them.
 
 For manual commands and source builds, see [ChatGPT plugin packaging](chatgpt-plugin.md). For retries and identity settings, see [Automatic saving operations](automatic-saving-operations.md). The installation flow follows OpenAI's [local plugin setup](https://developers.openai.com/plugins/build/plugins#install-a-local-plugin-manually) and [plugin removal](https://learn.chatgpt.com/docs/plugins#remove-a-plugin) documentation.
-
-## Automatic context for each prompt
-
-After project setup and hook activation, each submitted prompt also triggers a search for relevant memories in your owner's project scope before the LLM processes it. Matches are supplied as historical context automatically; you do not need to request a memory search each time. This requires local ChatGPT plugin v0.1.5+ or Claude plugin v0.1.6+, followed by a fresh local session. If Redis is unavailable, the chat continues and pending saves remain queued.
-
-To keep automatic saving while disabling these searches, set `promptRecall: false` in `.memory-capture.json`. See [retrieval limits, relevance threshold, and behavior](automatic-capture.md#relevant-memories-before-each-prompt).

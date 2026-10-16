@@ -2,7 +2,7 @@
 
 [Back to README](../README.md)
 
-The repository ships two OpenAI plugin profiles because automatic saving and public-directory distribution have different platform requirements.
+The repository ships two OpenAI plugin profiles to separate local automatic saving from a hosted, model-directed integration.
 
 ## Local desktop plugin
 
@@ -66,7 +66,7 @@ The capture CLI and bundled bridge resolve Redis settings from the process envir
 
 ## Public remote profile
 
-Public-directory plugins cannot contain lifecycle hooks. This repository therefore keeps a separate hook-free profile whose writes are model-directed. Build it only after deploying a stable public HTTPS MCP endpoint:
+This repository keeps a separate hook-free remote profile whose writes are model-directed. Local command hooks require an available execution environment and are not supported in cloud-orchestrated Work; see the [official plugin documentation](https://learn.chatgpt.com/docs/plugins). This profile has not been validated for public-directory acceptance. Build it only after deploying a stable public HTTPS MCP endpoint:
 
 ```sh
 npm run plugin:build:remote -- https://memory.example.com/mcp
@@ -74,4 +74,4 @@ npm run plugin:build:remote -- https://memory.example.com/mcp
 
 The result is `build/redis-agent-memory-chatgpt-remote-0.1.5.zip`. It contains the remote URL, plugin metadata, and memory workflow skill, but no local server, hook, or credentials. Configure supported authentication and complete domain verification in the OpenAI submission portal before publishing.
 
-The local profile is the right choice when automatic saving matters. The remote profile is the right foundation for broad ChatGPT distribution, but cannot passively capture every conversation turn.
+Use the local profile for supported automatic saving. The remote profile provides explicit tools through a hosted endpoint; it cannot passively capture every conversation turn. The endpoint must expose this bridge's tools (`memory_append`, `checkpoint_save`, and `resume_context`). Pointing it at the native Redis MCP endpoint does not supply those tool names. Hosting an authenticated HTTP bridge is a separate deployment task; this repository's bridge starts over stdio.

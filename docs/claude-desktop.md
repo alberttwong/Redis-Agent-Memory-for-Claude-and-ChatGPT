@@ -8,7 +8,7 @@ Claude Desktop can use the local Redis Agent Memory bridge for ordered session h
 
 | Surface | Installation | Capture behavior | Local retry queue |
 | --- | --- | --- | --- |
-| Local Codex project | `ram-capture install` | Guaranteed for supported, trusted hook events | Yes |
+| Local Codex project | `ram-capture install` | Automatic when supported hooks are active and trusted | Yes |
 | Claude Desktop Chat | `.mcpb` extension; CLI fallback available | Best-effort MCP tool calls selected by the model | No |
 | Claude Cowork | Marketplace plugin; browser setup requires access to the server loopback address | Best-effort MCP tool calls selected by the model | No |
 | Local Claude Code | Marketplace plugin v0.1.5+ and project setup | Automatic supported prompt/final-response hooks | Yes |
@@ -38,7 +38,7 @@ Download the `redis-agent-memory-<version>.mcpb` file from **Assets** on the [la
 1. Open **Settings → Extensions**.
 2. Select **Advanced settings → Install Extension…**.
 3. Choose the downloaded `.mcpb` file.
-4. Enter the Redis Agent Memory URL, store ID, and API key. The manifest marks the API key as sensitive so the Desktop host uses secure storage rather than a tracked file.
+4. Enter the Redis Agent Memory URL, store ID, and API key. The manifest marks the API key as sensitive; the Desktop host controls its storage.
 5. Optionally configure a stable owner, namespace resource ID, legacy namespace, or agent ID.
 6. Enable the extension in a conversation and ask it to call `memory_health`.
 
