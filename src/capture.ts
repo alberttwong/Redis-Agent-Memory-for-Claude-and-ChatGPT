@@ -1,8 +1,11 @@
+import { recordDiagnostic } from "./diagnostics.js";
 import { createHash, randomUUID } from "node:crypto";
 import { mkdir, readFile, readdir, rename, unlink, writeFile, open } from "node:fs/promises";
-import { basename, join } from "node:path";
+import { dirname, join } from "node:path";
 import { redactSensitiveText, sanitizeMemory, sanitizeCapturedText, guardrailsSchema, roleAllowed, type Guardrails } from "./privacy.js";
 import { defaultOwnerId } from "./identity.js";
+import { projectIdentity } from "./project-identity.js";
+export { projectNamespace } from "./project-identity.js";
 import * as z from "zod/v4";
 
 const identifier = z.string().regex(/^[A-Za-z0-9-]{1,64}$/);
@@ -10,6 +13,7 @@ export const captureConfigSchema = z.object({
   guardrails: guardrailsSchema.optional(),
   ownerId: identifier.optional(),
   namespace: identifier.optional(),
+  legacyNamespaces: z.array(identifier).max(20).default([]),
   sessionId: identifier.optional(),
   enabled: z.boolean().default(true),
   startupContextChars: z.number().int().min(1024).max(100000).default(18000),
@@ -40,22 +44,19 @@ export type CapturedMemory = {
 export type QueueEntry = { version: 1; memories: CapturedMemory[] };
 export interface CaptureTransport {
   create(memories: CapturedMemory[]): Promise<{ created: string[]; errors?: unknown[] | null }>;
-  recall(owner: string, namespace: string, limit: number): Promise<Array<{ text: string }>>;
+  recall(owner: string, namespace: string, limit: number): Promise<Array<{ text: string; id?: string }>>;
 }
 
 export function digest(value: string): string {
   return createHash("sha256").update(value).digest("hex").slice(0, 32);
 }
 
-export function projectNamespace(projectRoot: string): string {
-  const slug = basename(projectRoot).replace(/[^a-zA-Z0-9-]+/g, "-").slice(0, 28) || "project";
-  return `${slug}-${digest(projectRoot).slice(0, 12)}`;
-}
-
 export function scope(config: CaptureConfig, root: string, source: string, input: HookInput) {
+  const identity = config.namespace ? { namespace: config.namespace, legacyNamespaces: [] } : projectIdentity(root);
   return {
     owner: identifier.parse(process.env.MEMORY_CAPTURE_OWNER_ID ?? config.ownerId ?? process.env.AGENT_MEMORY_OWNER_ID ?? defaultOwnerId()),
-    namespace: config.namespace ?? projectNamespace(root),
+    namespace: identity.namespace,
+    legacyNamespaces: [...new Set([...identity.legacyNamespaces, ...config.legacyNamespaces])],
     session: config.sessionId ?? `chat-${digest(`${source}:${input.session_id}`)}`,
   };
 }
@@ -81,9 +82,9 @@ export function makeEntry(
   // JSON can expand control characters to six bytes; leave room for the envelope.
   const chunks = content.match(/[\s\S]{1,6000}/g) ?? [];
   return { version: 1, memories: chunks.map((text, index) => ({
-    id: `turn-${digest(JSON.stringify([resolved, source, eventIdentity, role, index]))}`,
+    id: `turn-${digest(JSON.stringify([{ owner: resolved.owner, namespace: resolved.namespace, session: resolved.session }, source, eventIdentity, role, index]))}`,
     text: JSON.stringify(sanitizeMemory({ role, source, sourceSessionId: input.session_id,
-      turnId: input.turn_id, capturedAt: now, part: index + 1, parts: chunks.length, content: text }, secrets, config.guardrails)),
+      repoPath: input.cwd ?? root, turnId: input.turn_id, capturedAt: now, part: index + 1, parts: chunks.length, content: text }, secrets, config.guardrails)),
     memory_type: "message", owner_id: resolved.owner, namespace: resolved.namespace,
     session_id: resolved.session, topics: ["auto-capture", source, role.toLowerCase()],
   })) };
@@ -101,6 +102,7 @@ export async function enqueue(directory: string, entry: QueueEntry, secrets: str
   const final = join(directory, filename);
   await writeFile(temporary, JSON.stringify({ ...entry, memories: entry.memories.filter(memory => capturedRoleAllowed(memory.text, guardrails)).map(memory => ({ ...memory, text: sanitizeCapturedText(memory.text, secrets, guardrails) })) }), { mode: 0o600, flag: "wx" });
   await rename(temporary, final);
+  await recordBatch(directory, "capture", entry.memories.filter(memory => capturedRoleAllowed(memory.text, guardrails)));
   return final;
 }
 
@@ -146,6 +148,7 @@ export async function flush(directory: string, transport: CaptureTransport, secr
           throw new Error("Capture write was not fully acknowledged; retained for retry");
         }
         sent += batch.length;
+        await recordBatch(directory, "delivery", batch);
       }
       await unlink(path);
     }
@@ -153,5 +156,19 @@ export async function flush(directory: string, transport: CaptureTransport, secr
   } finally {
     await lock.close();
     await unlink(lockPath);
+  }
+}
+
+async function recordBatch(directory: string, kind: "capture" | "delivery", memories: CapturedMemory[]) {
+  const groups = new Map<string, { owner: string; namespace: string; source: string; count: number }>();
+  for (const memory of memories) {
+    const identity = { owner: memory.owner_id, namespace: memory.namespace, source: memory.topics[0] === "auto-capture" ? memory.topics[1] ?? "unknown" : memory.topics[0] ?? "unknown" };
+    const key = JSON.stringify(identity);
+    const group = groups.get(key);
+    if (group) group.count++;
+    else groups.set(key, { ...identity, count: 1 });
+  }
+  for (const { count, ...identity } of groups.values()) {
+    await recordDiagnostic(join(dirname(directory), "diagnostics"), identity, kind, { count });
   }
 }
