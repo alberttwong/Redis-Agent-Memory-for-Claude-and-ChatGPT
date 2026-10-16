@@ -35,6 +35,7 @@ Doctor verifies local setup, not connectivity or client hook activation. Submit 
 | Command | Purpose | Live Redis required? |
 | --- | --- | --- |
 | `npm run check` | Type-check source | No |
+| `npm run test:unit` | Build and run unit tests | No |
 | `npm test` | Build, unit tests, and prompt-recall smoke checks | No |
 | `npm run plugin:test` | Check ChatGPT runtime freshness, validate profiles, build ZIPs, and smoke-test packages | No |
 | `npm run claude-plugin:test` | Validate Claude marketplace, runtime freshness, setup tests, and plugin smoke checks | No |
@@ -42,6 +43,12 @@ Doctor verifies local setup, not connectivity or client hook activation. Submit 
 | `npm run test:e2e:handoff` | Write and resume a handoff through both packaged servers | Yes; use a test store |
 
 After runtime source changes, regenerate tracked bundles with `npm run plugin:runtime` and `npm run claude-plugin:build` before running freshness checks. Documentation-only changes do not require runtime regeneration. Plugin skills and READMEs are copied into packages during packaging.
+
+### Tests before commits
+
+`npm ci` and `npm install` enable the tracked `.githooks/pre-commit` hook through the npm `prepare` script. Every commit runs `npm run test:unit` against the working tree and is blocked if the build or tests fail. No Redis credentials are required. The full `npm test` command also runs the prompt-recall and memory-check smoke checks.
+
+For an existing checkout with dependencies installed, run `npm run prepare` once to enable the hook. This sets the repository's `core.hooksPath` to `.githooks`; linked worktrees share that setting. If you maintain custom Git hooks, integrate them into this hooks directory before enabling it.
 
 ChatGPT packaging produces `build/redis-agent-memory-chatgpt-desktop-<version>.zip` (marketplace plus plugin) and `build/redis-agent-memory-chatgpt-local-<version>.zip` (plugin only). MCPB packaging produces `build/redis-agent-memory-<version>.mcpb`. Asset filenames use `package.json`'s version; marketplace plugin versions can advance separately. Check the installed plugin version when a feature requires a minimum version.
 
