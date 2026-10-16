@@ -16,11 +16,7 @@ In a local Codex chat inside ChatGPT Desktop, submitted prompts and available fi
 
 - [Claude Desktop quickstart](docs/quickstart-claude-desktop.md): Add the repository to the plugin marketplace, then the browser setup form in a local Claude Code session. For Desktop Chat, use the MCPB extension.
 - [ChatGPT Desktop quickstart](docs/quickstart-chatgpt-desktop.md): add the repository to the plugin marketplace, then provide connectivity settings.
-- [Technical setup and operations](docs/technical-setup-and-operations.md): build from source, install the plugin, accept project hooks and provide connectivity settings.
-
-Claude Desktop currently uses the plugin's browser form for Redis credentials because native marketplace configuration has an [upstream issue](https://github.com/anthropics/claude-code/issues/95683). Follow the quickstart's setup steps. [Project issue #31](https://github.com/alberttwong/redis-agent-memory-mcp/issues/31) tracks returning to native configuration after a Desktop fix is verified.
-
-Configured local Claude Code and Codex sessions also search for relevant owner- and project-scoped memories before each prompt is processed. See [automatic retrieval and controls](docs/automatic-capture.md#relevant-memories-before-each-prompt).
+- [Manual Quickstart](docs/technical-setup-and-operations.md): build from source, install the plugin, accept project hooks and provide connectivity settings.
 
 ## Per-user installation, shared organization memory
 
@@ -44,25 +40,6 @@ Automatic saving depends on the client actually running the supported hooks and 
 
 To reuse Redis credentials across worktrees and separate checkouts, configure [shared settings outside Git](docs/automatic-saving-operations.md#reuse-redis-settings-across-worktrees-and-checkouts). Each project can override them in its own `.env`.
 
-## Import existing history
-
-Both importers are dry runs unless `--write` is supplied:
-
-```sh
-npm run capture:import:claude -- --input /path/to/claude-export.zip
-npm run capture:import:chatgpt -- --input /path/to/chatgpt-export.zip
-```
-
-They preserve roles and timestamps, redact known credential patterns, use deterministic record IDs, and support conversation/date filters. See [Import existing memories](docs/importing-memories.md) before writing a large export.
-
-To automatically import downloaded exports, start a folder watcher and place files in its `claude/` or `chatgpt/` subfolder:
-
-```sh
-npm run capture:watch-imports -- --directory /path/to/memory-exports --write
-```
-
-Omit `--write` to preview. The watcher remembers queued files across restarts and retries pending delivery while running. You still request and download exports from each provider yourself.
-
 ## How saved context reaches the next chat
 
 There are three distinct storage paths:
@@ -84,32 +61,15 @@ Redis Agent Memory provides:
 - Metadata filters for owner, session, namespace, topic, and memory type.
 - Project context for episodic recall: this plugin's local capture stores prompts and available final responses with a project namespace, source client, capture timestamp, session identifiers, and turn identifiers when available. These records provide a basis for finding past decisions and related exchanges within a project, such as “when we fixed authentication.”
 - Automatic summarization and extraction of durable facts.
-- Configurable session summarization: for example, **Summarize after: 20** and **Keep most recent: 10** summarizes the older 10 messages when a session reaches 20 messages, retaining the 10 most recent messages in full. Configure these settings in Redis Cloud or with the setup command below.
+- Configurable session summarization: for example, **Summarize after: 20** and **Keep most recent: 10** summarizes the older 10 messages when a session reaches 20 messages, retaining the 10 most recent messages in full. Configure these settings in Redis Cloud or follow [Configure automatic summarization](docs/automatic-summarization.md).
 - Semantic, keyword, and hybrid retrieval with metadata filters.
 - Python, TypeScript, and REST APIs.
 - Compatibility with any model provider or agent framework.
-
-This project adds configurable memory privacy guardrails: per-project redaction categories, custom patterns and sensitive fields, prompt/response saving controls, and optional context-field exclusions. Existing protections remain the default; the configured Redis API key is always redacted. See [guardrail configuration](docs/automatic-capture.md#configure-memory-guardrails) and [security notes](#security-notes).
+- This project adds configurable memory privacy guardrails: per-project redaction categories, custom patterns and sensitive fields, prompt/response saving controls, and optional context-field exclusions. Existing protections remain the default; the configured Redis API key is always redacted. See [guardrail configuration](docs/automatic-capture.md#configure-memory-guardrails) and [security notes](#security-notes).
 
 See the [Redis Agent Memory documentation](https://redis.io/docs/latest/develop/ai/context-engine/agent-memory/) for the service's full capabilities. This bridge currently exposes semantic search through `memory_search`; keyword and hybrid search are not exposed as separate bridge tools. When automatic summarization is enabled, session retrieval can return a summary and recent events rather than every original turn; use `includeSummarisedEvents` when requesting the underlying session history.
 
 Local capture derives the project namespace from the project folder name and a hash of its path, unless overridden in configuration. It does not automatically store a ChatGPT Project name or ID. The current `memory_search` tool supports semantic queries scoped by owner and namespace, but does not expose date-range filters or automatically reconstruct matching episodes. Capture timestamps and source session/turn identifiers are stored inside each captured record's JSON text; structured time filtering and grouping related prompts and responses into episodes would require additional implementation.
-
-### Configure automatic summarization
-
-Run this from the project directory to enable automatic session summarization on the managed Redis Agent Memory store:
-
-```sh
-npm run memory:configure-summarization -- --summarize-after 20 --keep-most-recent 10
-```
-
-Configure `AGENT_MEMORY_STORE_ID`, `REDIS_CLOUD_API_KEY` (Cloud account API key), and `REDIS_CLOUD_API_SECRET_KEY` (Cloud user API key) in your local environment or untracked `.env`. These management credentials are separate from `AGENT_MEMORY_API_KEY`, the bearer token used for ordinary memory operations. The command reads the project's `.env` and existing shared memory settings; management credentials are not copied by `capture:share-settings`.
-
-Both counts are configurable. CLI flags override `AGENT_MEMORY_SUMMARIZE_AFTER` and `AGENT_MEMORY_KEEP_MOST_RECENT`; when omitted, they default to **20** and **10**. Values must be integers from 0 to 10000, and “Summarize after” must exceed “Keep most recent”. Changing the environment variables alone does not apply the settings: run the setup command explicitly. Normal capture and MCP startup do not change service configuration.
-
-This changes the **entire store**, including sessions written by other projects and clients using that store. The command updates only summarization, polls the asynchronous task for up to two minutes, and reads the store back to verify the saved counts. If it times out, check the task or store in Redis Cloud before retrying; the accepted update may still complete. Account feature availability and API permissions can prevent updates.
-
-See the [Redis Cloud Iris management API](https://api.redislabs.com/v1/swagger-ui/index.html?urls.primaryName=Iris#/Agent%20Memory%20-%20Stores/updateMemoryStore) for the store update contract. For usage, run `npm run memory:configure-summarization -- --help`.
 
 ## Use cases
 
@@ -211,4 +171,4 @@ The end-to-end test checks that progress saved through the Claude package can be
 
 ## Documentation map
 
-For import filters and format limits, see [Import existing memories](docs/importing-memories.md). For credential precedence, queue recovery, and troubleshooting, see [Automatic saving operations](docs/automatic-saving-operations.md). Maintainers can find build and verification commands in [Technical setup and operations](docs/technical-setup-and-operations.md).
+For import filters and format limits, see [Import existing history](docs/importing-memories.md). For credential precedence, queue recovery, and troubleshooting, see [Automatic saving operations](docs/automatic-saving-operations.md). Maintainers can find build and verification commands in [Manual Quickstart](docs/technical-setup-and-operations.md).
