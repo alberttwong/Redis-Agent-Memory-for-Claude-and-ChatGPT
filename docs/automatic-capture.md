@@ -1,5 +1,7 @@
 # Automatic prompt capture
 
+[Back to README](../README.md)
+
 The project hooks save submitted prompts and final assistant responses to Redis without asking the user to supply memory IDs, an owner, a namespace, or a session on each turn. `SessionStart` fetches recent project memories and adds them as context for the next agent.
 
 For routine status checks, retries, installation in another project, and removal, see [Automatic saving operations](automatic-saving-operations.md).
@@ -16,7 +18,7 @@ Use one capture hook installation per project. When developing this repository w
 
 ## Source development setup
 
-1. Install Node.js 20.12 or later, then run `npm install` and `npm run capture:install`.
+1. Install Node.js 20.12 or later, then run `npm ci` and `npm run capture:install` from a source checkout.
 2. Configure the generated private `.env` with the Redis endpoint, store ID, and API key. Existing `.env`, `.memory-capture.json`, hooks, and ignore rules are preserved or merged rather than replaced.
 3. Run `npm run capture:doctor`. It reports missing local setup without contacting Redis.
 4. Check `.memory-capture.json`. Capture is enabled for this project; edit `enabled` to `false` to turn it off.
@@ -44,11 +46,28 @@ Two people can use the same project namespace. Recall always combines **owner AN
 
 Project namespaces must match across clones if cross-computer recall is desired. A different checkout path gets a different fallback namespace; configure the same explicit project namespace where needed. Separate conversations have separate sessions, while startup recall searches the owner's project namespace across conversations, including records captured by the other client.
 
+## Project configuration
+
+A minimal configuration for matching scope across checkouts is:
+
+```json
+{
+  "enabled": true,
+  "namespace": "checkout-project"
+}
+```
+
+Keep the same explicit namespace in each checkout that should share context. Set a stable owner in private settings when moving between machines. Capture owner, namespace, and explicit session IDs accept 1–64 letters, numbers, or hyphens. Do not use email addresses or secrets as identifiers.
+
+`recallLimit` accepts 0–20 (default 6). `promptRecallLimit` accepts 0–20 (default 5), and `promptRecallThreshold` accepts 0–1 (default 0.7). Set `recallLimit: 0` to disable startup recent-memory retrieval; `promptRecall: false` controls the separate per-prompt search.
+
+Capture does not read `AGENT_MEMORY_NAMESPACE_ID` or `AGENT_MEMORY_NAMESPACE` for its namespace. Those are bridge settings. See [scope compatibility](handoff-workflow.md#scope-compatibility) before mixing capture, imports, and bridge checkpoints.
+
 ## What is saved
 
 - `UserPromptSubmit` saves the supplied prompt before the model processes it.
 - `Stop` saves `last_assistant_message` when supplied by the client. Missing final-message fields are skipped; intermediate assistant messages, tool output, files, hidden reasoning, and aborted responses are not captured.
-- Each record includes capture time, role, client, original session ID, optional turn ID, and chunk order. Long inputs are split into bounded records without discarding content.
+- Each record includes capture time, role, client, original session ID, optional turn ID, and chunk order. Long inputs are redacted and split into records of at most 6,000 characters per content chunk.
 - The configured Redis API key and recognized credentials, labelled sensitive values, email addresses, US phone/SSN patterns, and card-number-like sequences are redacted before new records enter the local queue. Queued text is checked again before upload. Detection is best effort: omit sensitive information and disable capture for sensitive conversations, since names, addresses, and contextual PII may not be recognized. Existing stored records and older queue files are not retroactively cleaned.
 
 The handler uses the **native MCP `create_long_term_memories` tool with `memory_type: "message"`**. This is explicit transcript capture; it does not use Redis's ordered session-memory API or trigger that API's summarization/extraction path. Each captured chunk is embedded and subject to long-term-memory retention/cost. A native MCP session-append tool was not advertised by the tested deployment. The bridge's existing session tools remain available separately.
@@ -59,7 +78,7 @@ Startup recall uses filter-only `search_long_term_memory`, scoped to owner, name
 
 For configured local Claude Code and Codex projects, `UserPromptSubmit` automatically searches Redis using the submitted prompt and injects matching historical memories before the model processes the turn. No model-selected memory tool call is required. This requires Claude plugin v0.1.6+ or local ChatGPT plugin v0.1.5+; update the marketplace installation and start a fresh session.
 
-Search uses the native MCP tool's `text`, `owner_id`, and `namespace` fields together, with a default minimum cosine similarity of 0.7 and at most 5 results. It covers the owner's project memories, including saved checkpoints; it is not limited to the current session or automatically captured messages. Ranking comes from Redis, so matches are useful context rather than a guarantee of relevance or completeness.
+Search uses the native MCP tool's `text`, `owner_id`, and `namespace` fields together, with a default similarity threshold of 0.7 and at most 5 results. It covers the owner's project memories, including imported messages and checkpoints stored under the same namespace field; it is not limited to the current session or automatically captured messages. Ranking comes from Redis, so matches are useful context rather than a guarantee of relevance or completeness.
 
 The current prompt enters the local retry queue first, then retrieval runs **before** queued writes are uploaded so that the new record does not match itself. Older identical prompts may still match. Search text is redacted using the capture credential rules and capped at 6,000 characters. Retrieved context is capped at 5,400 characters, keeps ranked order, and is labeled as untrusted historical data rather than instructions. The agent must still check current files and user instructions.
 
@@ -90,7 +109,7 @@ npm run capture:status
 npm run capture:flush
 ```
 
-There is no background daemon or timer: if the client closes during an outage, queued entries wait for the next hook or manual flush. The network budget is 20 seconds within the configured 30-second hook timeout. Queue files contain conversation text, remain local and ignored by Git, and need to be retained until delivery; they do not survive loss of the local disk.
+The capture hooks do not start a background daemon or timer: if the client closes during an outage, queued entries wait for the next hook or manual flush. The network budget is 20 seconds within the configured 30-second hook timeout. Queue files contain conversation text, remain local and ignored by Git, and need to be retained until delivery; they do not survive loss of the local disk.
 
 ## Use another project
 
@@ -110,4 +129,4 @@ The command merges all three Codex hooks, creates missing local configuration, a
 
 `ram-capture uninstall --project /absolute/path/to/target` removes only handlers identified as Redis Agent Memory capture hooks. It preserves `.env`, `.memory-capture.json`, ignored queue data, and unrelated hook handlers so queued content cannot be deleted accidentally.
 
-This installation is project-scoped. It does not record unrelated projects or ordinary Claude Desktop chats. Turn it off by setting `enabled: false`; pending entries remain on disk until capture is re-enabled and flushed.
+This installation is project-scoped. It does not record unrelated projects or ordinary Claude Desktop chats. Turn it off by setting `enabled: false`; pending entries remain on disk. Automatic retries resume when capture is re-enabled; an explicit `flush` can deliver pending entries even while `enabled` is `false`. Imports also require their own `--write` flag and are not disabled by this setting.

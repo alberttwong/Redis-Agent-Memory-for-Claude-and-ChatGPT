@@ -50,7 +50,9 @@ This copies only Redis memory settings from the project's `.env` into `~/.config
 
 Process environment values take precedence, followed by non-empty project `.env` values, then shared settings. Blank template values do not shadow shared settings. Doctor reports the credential sources without their values. Run doctor against another worktree to verify fallback; do not copy the API key into chat.
 
-Both the capture CLI and bridge use this resolution. Keep `.memory-capture.json` enabled in each project that should capture turns. Shared credentials do not enable capture in unconfigured projects.
+Capture uses the project namespace label in `.memory-capture.json`, or a project-path fallback. It does not use `AGENT_MEMORY_NAMESPACE_ID` or `AGENT_MEMORY_NAMESPACE` to select its namespace. The bridge prefers a namespace resource ID; use matching legacy namespace settings without a resource ID, or query the native endpoint directly, when recalling captured/imported messages.
+
+Both the capture CLI and bridge use this credential resolution. Keep `.memory-capture.json` enabled in each project that should capture turns. Shared credentials do not enable capture in unconfigured projects.
 Configured local projects automatically retrieve owner- and namespace-scoped relevant memories at each submitted prompt as well as saving supported turns. Defaults are `promptRecall: true`, `promptRecallLimit: 5`, and `promptRecallThreshold: 0.7` in `.memory-capture.json`; existing files use these defaults without being rewritten. To disable per-prompt retrieval while keeping saving, set `promptRecall: false`, preserving other settings. Retrieval requires active plugin hooks and a working Redis connection; doctor alone does not prove it ran. Startup recent-memory recall uses the separate `recallLimit` setting.
 
 ## Memory privacy guardrails

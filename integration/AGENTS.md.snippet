@@ -1,5 +1,7 @@
 # Shared Redis agent memory
 
+- These instructions use the optional bridge tools; native Redis MCP tools have different names.
+- Use a task session ID unique within the store: ordered session reads do not add owner or namespace filters.
 - Use the same stable session ID for one task across Codex and Claude Code.
 - Before continuing an existing task, call `resume_context` with that session ID and a short description of the current request.
 - Append important user and assistant turns with `memory_append`. Do not write secrets, credentials, raw environment files, or sensitive personal data.
