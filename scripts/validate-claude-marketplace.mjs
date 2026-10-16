@@ -24,7 +24,7 @@ for (const entry of catalog.plugins) {
   await access(join(pluginRoot, "server", "index.mjs"));
   await access(join(pluginRoot, "server", "capture-cli.mjs"));
   const hooks = await readJson(join(pluginRoot, "hooks", "hooks.json"));
-  for (const event of ["SessionStart", "UserPromptSubmit", "Stop"]) {
+  for (const event of ["SessionStart", "UserPromptSubmit", "PreToolUse", "PostToolUse", "PreCompact", "Stop", "PostToolUseFailure", "SubagentStart", "SubagentStop", "Notification", "TaskCompleted", "SessionEnd"]) {
     const handler = hooks.hooks?.[event]?.[0]?.hooks?.[0];
     assert.equal(handler?.type, "command");
     assert.equal(handler.command, 'node "${CLAUDE_PLUGIN_ROOT}/server/capture-cli.mjs" hook claude --project "${CLAUDE_PROJECT_DIR}"');

@@ -25,6 +25,7 @@ import { defaultOwnerId } from "./identity.js";
 import { loadProjectGuardrails, guardrailInstructions } from "./privacy.js";
 import { recallNamespaces } from "./project-identity.js";
 import { recallPrompt } from "./prompt-recall.js";
+import { codexCaptureEvents, claudeCaptureEvents } from "./hook-observations.js";
 
 const mode = process.argv[2] ?? "hook";
 const source = option("--client") ?? (process.argv[3]?.startsWith("--") ? undefined : process.argv[3]) ?? "codex";
@@ -277,6 +278,7 @@ async function main() {
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw new Error("Invalid .memory-capture.json");
     }
+    config = captureConfigSchema.parse({ ...defaults, guardrails });
     const ownerId = identifier(
       option("--owner") ?? process.env.MEMORY_CAPTURE_OWNER_ID ?? defaults.ownerId
         ?? process.env.AGENT_MEMORY_OWNER_ID ?? defaultOwnerId(),
@@ -378,20 +380,20 @@ async function main() {
     }
   }
 
-  if (!importSummary && mode !== "flush") {
+  if (!importSummary) {
     try {
       config = captureConfigSchema.parse(JSON.parse(await readFile(join(projectRoot, ".memory-capture.json"), "utf8")));
     } catch (error) {
-      if (mode === "hook" && (error as NodeJS.ErrnoException).code === "ENOENT") {
+      if (mode === "flush" && (error as NodeJS.ErrnoException).code === "ENOENT") {
+        config = captureConfigSchema.parse({});
+      } else if (mode === "hook" && (error as NodeJS.ErrnoException).code === "ENOENT") {
         output({});
         return;
-      }
-      if (mode === "status") {
+      } else if (mode === "status") {
         output({ source, enabled: null, ownerId: null, namespace: null, pending: await queueDepth(), diagnostics: await diagnosticStatus() });
         process.exitCode = 1;
         return;
-      }
-      throw error;
+      } else throw error;
     }
     config = captureConfigSchema.parse({ ...config, guardrails });
     if (mode === "status") {
@@ -399,7 +401,11 @@ async function main() {
       output({ environment, enabled: config.enabled, guardrails, ownerId: resolved.owner, namespace: resolved.namespace, legacyNamespaces: resolved.legacyNamespaces, source, pending: await queueDepth(), diagnostics: await diagnosticStatus() });
       return;
     }
-    if (!config.enabled && mode !== "check") { if (mode === "hook") output({}); return; }
+    if (!config.enabled && mode !== "check") {
+      if (mode === "hook") output({});
+      else if (mode === "flush") output({ enabled: false, sent: 0, pending: await pendingCount(queue) });
+      return;
+    }
   }
   let marker: string | undefined;
   const verifyOnly = mode === "check" && option("--verify") !== undefined;
@@ -413,11 +419,19 @@ async function main() {
   let input: HookInput | undefined;
   if (!importSummary && mode === "hook") {
     let raw = "";
-    for await (const chunk of process.stdin) raw += chunk;
+    for await (const chunk of process.stdin) {
+      raw += chunk;
+      if (Buffer.byteLength(raw) > 2_000_000) throw new Error("Hook input exceeds capture limit");
+    }
     input = JSON.parse(raw);
     if (!input || typeof input.session_id !== "string" || !input.session_id) throw new Error("Missing hook session identity");
+    const events: readonly string[] = source === "claude" ? claudeCaptureEvents : codexCaptureEvents;
+    if (!events.includes(input.hook_event_name) || config.observations.excludedEvents.includes(input.hook_event_name as "Stop")) { output({}); return; }
     const entry = makeEntry(config, projectRoot, source, input, [process.env.AGENT_MEMORY_API_KEY ?? ""]);
     if (entry) await enqueue(queue, entry, secrets, guardrails);
+    const resolved = scope(config, projectRoot, source, input);
+    await recordDiagnostic(diagnostics, { owner: resolved.owner, namespace: resolved.namespace, source },
+      input.hook_event_name as typeof claudeCaptureEvents[number], { count: entry?.memories.length ?? 0 });
   } else if (!importSummary && mode !== "flush" && mode !== "check") {
     throw new Error("Expected share-settings, configure, install, doctor, status, check, flush, import-claude, import-chatgpt, uninstall, help, or hook");
   }
@@ -486,7 +500,7 @@ async function main() {
       }
     }
     let result: Awaited<ReturnType<typeof flush>> = { sent: 0, pending: 0 };
-    try { result = await flush(queue, storage, secrets, guardrails); }
+    try { result = await flush(queue, storage, secrets, guardrails, config?.observations); }
     catch (error) {
       if (mode !== "hook") throw error;
       // A delivery outage must not discard context already retrieved for this turn.

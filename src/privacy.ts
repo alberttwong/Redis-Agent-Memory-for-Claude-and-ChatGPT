@@ -19,9 +19,11 @@ export const guardrailsSchema = z.object({
   customPatterns: z.array(pattern).max(50).default([]),
   capturePrompts: z.boolean().default(true),
   captureResponses: z.boolean().default(true),
+  captureObservations: z.boolean().default(true),
   omitFields: z.array(z.enum([
     "sourceSessionId", "turnId", "capturedAt", "sourceFile", "sourceConversationId",
     "conversationTitle", "sourceMessageId", "repoPath", "branch", "commit", "changedFiles",
+    "eventId", "toolCallId", "agentId", "taskId",
   ])).default([]),
 }).strict();
 export type Guardrails = z.input<typeof guardrailsSchema>;
@@ -53,7 +55,8 @@ function enabledLabels(policy: ReturnType<typeof guardrailsSchema.parse>): strin
 
 export function roleAllowed(role: string, guardrails: Guardrails = {}): boolean {
   return !(role === "USER" && guardrails.capturePrompts === false
-    || role === "ASSISTANT" && guardrails.captureResponses === false);
+    || role === "ASSISTANT" && guardrails.captureResponses === false
+    || role === "OBSERVATION" && guardrails.captureObservations === false);
 }
 
 export function guardrailInstructions(guardrails: Guardrails = {}): string {

@@ -10,7 +10,7 @@ For routine status checks, retries, installation in another project, and removal
 
 ## Claude Code marketplace (default)
 
-Install **Redis Agent Memory** through **Add marketplace**, then run `/redis-agent-memory:setup-redis-memory` in a local Claude Code project. Follow the [Claude Desktop quickstart](quickstart-claude-desktop.md). Plugin v0.1.5+ bundles `SessionStart`, `UserPromptSubmit`, and `Stop` in `hooks/hooks.json` and a standalone capture CLI; no clone or source build is required.
+Install **Redis Agent Memory** through **Add marketplace**, then run `/redis-agent-memory:setup-redis-memory` in a local Claude Code project. Follow the [Claude Desktop quickstart](quickstart-claude-desktop.md). Claude plugin v0.1.10 registers 12 lifecycle events in `hooks/hooks.json` and bundles a standalone capture CLI; no clone or source build is required.
 
 The setup skill creates a missing `.memory-capture.json` with capture enabled and adds the private queue to `.gitignore`. Existing opt-outs are preserved. An unconfigured project is skipped. Hooks use the current Claude project root, not the plugin install directory. Credentials resolve from environment, project `.env`, shared settings, then the browser form's `connection.json` in the plugin data directory. The setup skill passes the same settings path when checking configuration. Captured prompts are queued before network access and retried on later events; final responses are saved only when supplied by Claude Code.
 
@@ -29,7 +29,7 @@ Use one capture hook installation per project. When developing this repository w
 
 Codex discovers `.codex/hooks.json`. Installer-managed hooks invoke the compiled CLI directly; the CLI derives the Git root, loads that project's `.env` with [shared settings as fallback](automatic-saving-operations.md#reuse-redis-settings-across-worktrees-and-checkouts), and uses that project's configuration and queue even when Codex starts from a subdirectory. The legacy shell launcher remains available for the checked-in Claude Code configuration and npm convenience commands.
 
-Client versions and policy must support and allow `SessionStart`, `UserPromptSubmit`, and `Stop` command hooks. See the [Codex hook reference](https://learn.chatgpt.com/docs/hooks) and [Claude Code hook reference](https://code.claude.com/docs/en/hooks). Hooks need network access to the configured Redis endpoint. The SDK test does not prove that a particular Desktop installation has activated hooks; test a fresh session after trusting them.
+Client versions and policy must support and allow the registered command hooks. The expanded manifests require all 12 Claude or six Codex events listed below; older hosts may reject unknown events. No minimum released host version has yet been verified for the expanded coverage. See the [Codex hook reference](https://learn.chatgpt.com/docs/hooks) and [Claude Code hook reference](https://code.claude.com/docs/en/hooks). Hooks need network access to the configured Redis endpoint. The SDK test does not prove that a particular Desktop installation has activated hooks; test a fresh session after trusting them.
 
 Codex command hooks run with local-only orchestration. They are not supported in cloud-orchestrated Work chats, including chats using local computer access. Enterprise environments that need cloud-orchestrated lifecycle callbacks should use the supported managed MCP-hook path described in the Codex hook reference.
 
@@ -88,13 +88,46 @@ Capture does not read `AGENT_MEMORY_NAMESPACE_ID` or `AGENT_MEMORY_NAMESPACE` fo
 ## What is saved
 
 - `UserPromptSubmit` saves the supplied prompt before the model processes it.
-- `Stop` saves `last_assistant_message` when supplied by the client. Missing final-message fields are skipped; intermediate assistant messages, tool output, files, hidden reasoning, and aborted responses are not captured.
+- `Stop` saves `last_assistant_message` when supplied by the client. Missing final-message fields are skipped; intermediate assistant messages and hidden reasoning are not captured. Tool observations are handled separately below.
 - By default, each record includes capture time, role, client, original session ID, optional turn ID, and chunk order. Long inputs are redacted and split into records of at most 6,000 characters per content chunk.
 - By default, the configured Redis API key and recognized credentials, labelled sensitive values, email addresses, US phone/SSN patterns, and card-number-like sequences are redacted before new records enter the local queue. Queued text is checked again before upload. Detection is best effort: omit sensitive information and disable capture for sensitive conversations, since names, addresses, and contextual PII may not be recognized. Existing stored records are not retroactively cleaned; older queue files are checked against the current policy when retried.
 
 The handler uses the **native MCP `create_long_term_memories` tool with `memory_type: "message"`**. This is explicit transcript capture; it does not use Redis's ordered session-memory API or trigger that API's summarization/extraction path. Each captured chunk is embedded and subject to long-term-memory retention/cost. A native MCP session-append tool was not advertised by the tested deployment. The bridge's existing session tools remain available separately.
 
 Startup recall uses filter-only `search_long_term_memory`, scoped to owner, namespace, and the `auto-capture` topic, ordered by update time. It returns at most `recallLimit` records (default 6) and limits the complete serialized context to `startupContextChars` (default 18,000 characters). This gives recent context, not a complete reconstruction of every conversation or a semantic summary. Retrieved content is marked as historical data; the agent still needs to verify the repository state.
+
+## Expanded lifecycle observations
+
+Claude plugin v0.1.10 registers `SessionStart`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `PostToolUseFailure`, `PreCompact`, `SubagentStart`, `SubagentStop`, `Notification`, `TaskCompleted`, `Stop`, and `SessionEnd`. Local ChatGPT/Codex plugin v0.1.9 and the project installer register the six shared events: `SessionStart`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `PreCompact`, and `Stop`.
+
+Additional events are long-term message records with `role: "OBSERVATION"`, an event type, event identity, source timestamp when supplied, and available tool-call, agent, and task identifiers. They use the `auto-observation` topic, keeping frequent tool activity out of the startup `auto-capture` conversation filter; per-prompt semantic recall can still retrieve relevant observations. They are not user speech, ordered session history, extracted facts, or handoff checkpoints. Linked tool events share their tool-call identifier. Unknown events and tool events lacking a tool name are skipped. The handler accepts at most 2 MB of stdin; larger or malformed payloads fail without blocking the host.
+
+`PreToolUse` keeps bounded intent and file paths. `PostToolUse` keeps bounded results; `PostToolUseFailure` keeps the available error, interruption flag, and duration. Inputs are captured once before the call. Structured file contents/patch fields in inputs and built-in `Read`/`read_file` results are omitted to avoid copying whole files. Other file/tool outputs may still contain excerpts. Notifications, subagent boundaries, task completion, and session end keep only allowlisted supplied fields. A host reporting `TaskCompleted` or `Stop` is not proof that implementation or validation succeeded.
+
+`PreCompact` records the boundary, trigger, and supplied custom instructions. The handler never follows `transcript_path` or reads a transcript. It emits `{}`: neither Claude nor Codex receives additional context from this handler at compaction. Existing queued task evidence is retried, but this does not preserve context absent from prior observations or generate an automatic checkpoint. Tool hooks also emit `{}`; automatic context enrichment remains at startup and prompt submission only. These choices follow the event-specific [Claude](https://code.claude.com/docs/en/hooks) and [Codex](https://learn.chatgpt.com/docs/hooks) contracts.
+
+Tune the expanded scope independently in `.memory-capture.json`:
+
+```json
+{
+  "observations": {
+    "enabled": true,
+    "excludedEvents": ["Notification"],
+    "excludedTools": ["mcp__browser__*", "Bash"],
+    "inputChars": 2000,
+    "outputChars": 4000
+  },
+  "guardrails": { "captureObservations": true }
+}
+```
+
+Exclusions apply to exact event names and case-insensitive tool-name globs (`*` is the wildcard). Memory tools and this capture handler's own commands are always excluded. `inputChars` and `outputChars` each accept 0–6000 and bound sanitized JSON excerpts; truncation is explicit, and excerpts need not be complete JSON. Routing fields and bounded correlation metadata are separate. Set either budget to zero to omit that payload. Structured privacy filtering runs before excerpts are truncated. The configured API key is always removed. Existing role controls stay independent; use `captureObservations: false` or `observations.enabled: false` to stop observations while keeping conversation capture. Current privacy rules and event/tool exclusions apply again when queued records are uploaded. No remote-only profile or ordinary ChatGPT/Claude Chat gains passive capture.
+
+### Verification and host support
+
+The source and packaged-handler tests cover representative payloads, exclusions, privacy, replay, outage/retry, and context budgets. They directly launch manifest commands with mock transport and **do not prove host dispatch**. Installed CLI versions inspected during development were Claude Code 2.1.301 and Codex CLI 0.163.0; neither version is claimed as a verified minimum. The opt-in `npm run test:e2e:lifecycle` test passed against the configured live Redis store: four tool observations from both packaged clients were delivered and retrieved under an isolated owner/namespace, then removed. This directly invokes handlers; actual host tool and `PreCompact` dispatch and local desktop activation still require separate verification before those acceptance criteria can be marked complete.
+
+After updating, review/trust the changed hook definitions and start a fresh supported local chat. Inspect `/hooks`, run a harmless tool, then check `status` for `diagnostics.hookDispatch.PreToolUse` and `PostToolUse`. The recorded count is the number of queued chunks for that invocation, including zero for a skipped observation. Confirm `lastDelivery` and retrieve the scoped observation from another client. Trigger an actual `/compact` separately and check `hookDispatch.PreCompact`; launching the handler with a synthetic payload is not this test. Unknown dispatch means unobserved, not successful or necessarily unsupported. A dispatch record with no delivery points to queue/credential/network problems; no record requires checking host support, policy, trust, project selection, and activation. `doctor --plugin` cannot establish host activation.
 
 ## Configure memory guardrails
 
@@ -125,10 +158,10 @@ Add `guardrails` to the project's `.memory-capture.json`, preserving its existin
 | `redact.personal` | `true` | Labelled name, address, birth-date, and medical-record fields |
 | `sensitiveFields` | `[]` | Additional structured field names whose values are redacted, matched case-insensitively at any depth |
 | `customPatterns` | `[]` | JavaScript regular expression strings applied to text and metadata strings with global, case-insensitive matching |
-| `capturePrompts`, `captureResponses` | `true` | Allow USER and ASSISTANT messages, respectively, in capture, imports, and bridge appends |
+| `capturePrompts`, `captureResponses`, `captureObservations` | `true` | Allow USER messages, ASSISTANT messages, and separate tool/lifecycle observations, respectively |
 | `omitFields` | `[]` | Remove selected optional context fields from structured envelopes, metadata, and checkpoints |
 
-Allowed `omitFields` values are `sourceSessionId`, `turnId`, `capturedAt`, `sourceFile`, `sourceConversationId`, `conversationTitle`, `sourceMessageId`, `repoPath`, `branch`, `commit`, and `changedFiles`. This removes structured fields, not mentions inside prose. Owner, namespace, derived session ID, record ID, source client, and role remain for routing and retrieval; backend timestamps are unaffected. Disable capture entirely with `enabled: false` to stop local automatic saving and recall.
+Allowed `omitFields` values are `sourceSessionId`, `turnId`, `capturedAt`, `sourceFile`, `sourceConversationId`, `conversationTitle`, `sourceMessageId`, `repoPath`, `branch`, `commit`, `changedFiles`, `eventId`, `toolCallId`, `agentId`, and `taskId`. This removes structured fields, not mentions inside prose. Owner, namespace, derived session ID, record ID, source client, and role remain for routing and retrieval; backend timestamps are unaffected. Disable capture entirely with `enabled: false` to stop local automatic saving and recall.
 
 The configured Redis API key is always redacted, even with `redact.credentials: false`. A disabled category permits that information unless another enabled rule matches it. Default detection remains pattern-based and does not recognize every name, address, or sensitive context. Custom patterns are trusted project configuration; avoid expressions with expensive backtracking.
 
@@ -162,7 +195,7 @@ Set `promptRecall` to `false` (or its limit to zero) to keep saving without per-
 
 Before network access, each event is written atomically to `.memory-capture/queue/` with private file permissions. Delivery removes an entry only when Redis acknowledges every record. Timeouts, outages, missing credentials, and partial failures retain the payload for later retry; the hook lets the conversation continue and emits a warning.
 
-Queue replay preserves IDs so a retry of an accepted write reuses the same memory identity. The live native tool advertises idempotent create by ID. A single flush lock prevents concurrent queue drains; a lock belonging to an exited process is cleared for the next attempt. Without a client turn ID, each hook invocation receives a fresh identity so repeated identical prompts are not discarded. Reinvoking that hook is distinct from replaying its queued event.
+Queue replay preserves IDs so a retry of an accepted write reuses the same memory identity. Private `.memory-capture/queue/.receipts/` files record acknowledged IDs, including partially accepted batches, so hook replay and later retries skip accepted records. Receipts contain no conversation content and are retained until removed manually; deleting them removes local replay suppression. An accepted write whose response is lost has no local receipt and retries by the same service ID. The live native tool advertises idempotent create by ID. A single flush lock prevents concurrent queue drains; a lock belonging to an exited process is cleared for the next attempt. Tool observations use event IDs or tool-call IDs when supplied, with the hook event type included to separate intent from outcome. Agent and task lifecycle events use their available IDs; other turn-scoped observations use turn ID plus a content hash. Without stable identity, each hook invocation receives a fresh identity so repeated identical prompts are not discarded. Reinvoking that hook is distinct from replaying its queued event.
 
 Retries run on subsequent hook invocations, or manually:
 
@@ -187,10 +220,10 @@ Or, after installing the package globally or from a packed tarball:
 ram-capture install --project /absolute/path/to/target
 ```
 
-The command merges all three Codex hooks, creates missing local configuration, and adds `.env` and `.memory-capture/` to the target's ignore file. Fill in the target's `.env`, run `ram-capture doctor --project /absolute/path/to/target`, then restart and trust/review the hooks as required. It does not silently approve hooks on the user's behalf.
+The command merges all six Codex hooks, creates missing local configuration, and adds `.env` and `.memory-capture/` to the target's ignore file. Fill in the target's `.env`, run `ram-capture doctor --project /absolute/path/to/target`, then restart and trust/review the hooks as required. It does not silently approve hooks on the user's behalf.
 
 `ram-capture uninstall --project /absolute/path/to/target` removes only handlers identified as Redis Agent Memory capture hooks. It preserves `.env`, `.memory-capture.json`, ignored queue data, and unrelated hook handlers so queued content cannot be deleted accidentally.
 
-This installation is project-scoped. It does not record unrelated projects or ordinary Claude Desktop chats. Turn it off by setting `enabled: false`; pending entries remain on disk. Automatic retries resume when capture is re-enabled; an explicit `flush` can deliver pending entries even while `enabled` is `false`. Imports also require their own `--write` flag and are not disabled by this setting.
+This installation is project-scoped. It does not record unrelated projects or ordinary Claude Desktop chats. Turn it off by setting `enabled: false`; pending entries remain on disk. Automatic retries resume when capture is re-enabled; an explicit `flush` also respects an existing project opt-out and retains pending entries until capture is re-enabled. Imports also require their own `--write` flag and are not disabled by this setting.
 
 Both automatic recall paths support full serialized character budgets: `startupContextChars` defaults to 18000 and `promptContextChars` to 5400; both accept 1024–100000. Notices and JSON escaping count toward the cap. Greeting-only prompts skip search, empty results inject no per-turn context, and exact duplicate matches are removed. See [recall budgets and evaluation](recall-budgets.md) for limits, detail recovery, and prompt-cache observations.
