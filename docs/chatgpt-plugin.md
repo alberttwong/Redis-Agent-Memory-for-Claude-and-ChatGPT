@@ -72,6 +72,6 @@ Public-directory plugins cannot contain lifecycle hooks. This repository therefo
 npm run plugin:build:remote -- https://memory.example.com/mcp
 ```
 
-The result is `build/redis-agent-memory-chatgpt-remote-0.1.4.zip`. It contains the remote URL, plugin metadata, and memory workflow skill, but no local server, hook, or credentials. Configure supported authentication and complete domain verification in the OpenAI submission portal before publishing.
+The result is `build/redis-agent-memory-chatgpt-remote-0.1.5.zip`. It contains the remote URL, plugin metadata, and memory workflow skill, but no local server, hook, or credentials. Configure supported authentication and complete domain verification in the OpenAI submission portal before publishing.
 
 The local profile is the right choice when automatic saving matters. The remote profile is the right foundation for broad ChatGPT distribution, but cannot passively capture every conversation turn.
