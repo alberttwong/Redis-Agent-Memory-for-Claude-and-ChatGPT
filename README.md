@@ -103,7 +103,7 @@ sequenceDiagram
     Note over User,ChatGPT: Later, the user switches to ChatGPT
     User->>ChatGPT: Pick up the checkout retry task from my saved progress
     ChatGPT->>Memory: Retrieve saved checkout retry progress
-    Memory-->>ChatGPT: Seven attempts agreed; implementation is next
+    Memory-->>ChatGPT: Seven attempts agreed. Implementation is next
     ChatGPT-->>User: We agreed on seven attempts. Implementation is next
     User->>ChatGPT: Let's continue from there
 ```
