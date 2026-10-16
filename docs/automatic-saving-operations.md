@@ -4,7 +4,7 @@
 
 The capture handler runs locally with Node.js 20.12+ and is enabled by default by `ram-capture install`. It connects to Redis's native MCP endpoint directly; registering the optional stdio bridge is not required.
 
-The owner defaults to a hash of the OS account and hostname, the namespace defaults to a project-directory slug plus a hash of its absolute path, sessions derive from each client conversation, and memory IDs are generated automatically. Set `AGENT_MEMORY_OWNER_ID` in the private `.env` only when the same identity must be shared across computers.
+The owner defaults to a hash of the OS account and hostname, the namespace defaults to a hash of the canonical Git remote identity (with local fallbacks; see [identity and migration rules](automatic-capture.md#automatic-repository-identity-and-compatibility)), sessions derive from each client conversation, and memory IDs are generated automatically. Set `AGENT_MEMORY_OWNER_ID` in the private `.env` only when the same identity must be shared across computers.
 
 ## Reuse Redis settings across worktrees and checkouts
 
@@ -57,7 +57,7 @@ Cloning or packaging this repository does not activate Codex hooks. For manual i
 | Doctor passes but nothing is saved | Doctor checks local files and credential presence, not hook execution or connectivity | Start a fresh local session, inspect and trust hooks, submit a test prompt, then retrieve its record |
 | Pending count stays above zero | Endpoint, store, key, network access, and queue permissions | Fix the connection and run `flush`; keep the queue until delivery succeeds |
 | Pending count is zero but search finds nothing | Hook activation, owner, namespace field, search threshold, and indexing delay | Verify the actual scope and test a native scoped search; zero pending alone proves no capture |
-| A new checkout recalls different context | The fallback namespace includes the absolute checkout path | Set the same explicit `namespace` in each project's `.memory-capture.json` |
+| A new checkout recalls different context | Owner, selected remote, explicit namespace, or store differs; older records may use path-based scopes | Compare `status` output and follow the [identity and migration rules](automatic-capture.md#automatic-repository-identity-and-compatibility) |
 | The same turn appears twice | Both plugin hooks and manually installed hooks may be active | Remove the redundant capture handlers and keep one installation route |
 | Startup recall omits imported chats | Startup recall filters to the `auto-capture` topic | Use per-prompt recall or an explicit scoped search for imports |
 

@@ -1,3 +1,4 @@
+import { recallNamespaces } from "./project-identity.js";
 import { redactCaptureText, type CaptureConfig } from "./capture.js";
 
 export type PromptSearch = (args: {
@@ -10,15 +11,15 @@ export const promptContextLimit = 5400;
 
 export async function recallPrompt(
   config: CaptureConfig,
-  scope: { owner: string; namespace: string },
+  scope: { owner: string; namespace: string; legacyNamespaces?: string[] },
   prompt: string | undefined,
   search: PromptSearch,
   secrets: string[] = [],
 ): Promise<string> {
   if (!config.promptRecall || !config.promptRecallLimit || !prompt?.trim()) return "";
   const text = redactCaptureText(prompt, secrets, config.guardrails).trim().slice(0, promptQueryLimit);
-  const matches = await search({ text, owner_id: scope.owner, namespace: scope.namespace,
-    limit: config.promptRecallLimit, similarity_threshold: config.promptRecallThreshold });
+  const matches = await recallNamespaces(scope, config.promptRecallLimit, namespace => search({ text, owner_id: scope.owner, namespace,
+    limit: config.promptRecallLimit, similarity_threshold: config.promptRecallThreshold }));
   const historical = matches.slice(0, config.promptRecallLimit)
     .filter(memory => typeof memory?.text === "string" && memory.text.trim())
     .map(memory => redactCaptureText(memory.text, secrets, config.guardrails));

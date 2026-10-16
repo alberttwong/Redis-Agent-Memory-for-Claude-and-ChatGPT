@@ -1,8 +1,10 @@
 import { createHash, randomUUID } from "node:crypto";
 import { mkdir, readFile, readdir, rename, unlink, writeFile, open } from "node:fs/promises";
-import { basename, join } from "node:path";
+import { join } from "node:path";
 import { redactSensitiveText, sanitizeMemory, sanitizeCapturedText, guardrailsSchema, roleAllowed, type Guardrails } from "./privacy.js";
 import { defaultOwnerId } from "./identity.js";
+import { projectIdentity } from "./project-identity.js";
+export { projectNamespace } from "./project-identity.js";
 import * as z from "zod/v4";
 
 const identifier = z.string().regex(/^[A-Za-z0-9-]{1,64}$/);
@@ -10,6 +12,7 @@ export const captureConfigSchema = z.object({
   guardrails: guardrailsSchema.optional(),
   ownerId: identifier.optional(),
   namespace: identifier.optional(),
+  legacyNamespaces: z.array(identifier).max(20).default([]),
   sessionId: identifier.optional(),
   enabled: z.boolean().default(true),
   recallLimit: z.number().int().min(0).max(20).default(6),
@@ -45,15 +48,12 @@ export function digest(value: string): string {
   return createHash("sha256").update(value).digest("hex").slice(0, 32);
 }
 
-export function projectNamespace(projectRoot: string): string {
-  const slug = basename(projectRoot).replace(/[^a-zA-Z0-9-]+/g, "-").slice(0, 28) || "project";
-  return `${slug}-${digest(projectRoot).slice(0, 12)}`;
-}
-
 export function scope(config: CaptureConfig, root: string, source: string, input: HookInput) {
+  const identity = config.namespace ? { namespace: config.namespace, legacyNamespaces: [] } : projectIdentity(root);
   return {
     owner: identifier.parse(process.env.MEMORY_CAPTURE_OWNER_ID ?? config.ownerId ?? process.env.AGENT_MEMORY_OWNER_ID ?? defaultOwnerId()),
-    namespace: config.namespace ?? projectNamespace(root),
+    namespace: identity.namespace,
+    legacyNamespaces: [...new Set([...identity.legacyNamespaces, ...config.legacyNamespaces])],
     session: config.sessionId ?? `chat-${digest(`${source}:${input.session_id}`)}`,
   };
 }
@@ -79,9 +79,9 @@ export function makeEntry(
   // JSON can expand control characters to six bytes; leave room for the envelope.
   const chunks = content.match(/[\s\S]{1,6000}/g) ?? [];
   return { version: 1, memories: chunks.map((text, index) => ({
-    id: `turn-${digest(JSON.stringify([resolved, source, eventIdentity, role, index]))}`,
+    id: `turn-${digest(JSON.stringify([{ owner: resolved.owner, namespace: resolved.namespace, session: resolved.session }, source, eventIdentity, role, index]))}`,
     text: JSON.stringify(sanitizeMemory({ role, source, sourceSessionId: input.session_id,
-      turnId: input.turn_id, capturedAt: now, part: index + 1, parts: chunks.length, content: text }, secrets, config.guardrails)),
+      repoPath: input.cwd ?? root, turnId: input.turn_id, capturedAt: now, part: index + 1, parts: chunks.length, content: text }, secrets, config.guardrails)),
     memory_type: "message", owner_id: resolved.owner, namespace: resolved.namespace,
     session_id: resolved.session, topics: ["auto-capture", source, role.toLowerCase()],
   })) };
