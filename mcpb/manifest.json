@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "redis-agent-memory",
   "display_name": "Redis Agent Memory",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Recall project context, record session events, and save agent handoff checkpoints in Redis Agent Memory.",
   "author": {
     "name": "Albert Wong",
