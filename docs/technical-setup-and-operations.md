@@ -1,4 +1,4 @@
-# Technical setup and operations
+# Manual Quickstart
 
 [Back to README](../README.md)
 
