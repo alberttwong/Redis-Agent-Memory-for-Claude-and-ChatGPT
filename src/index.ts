@@ -3,6 +3,7 @@ import { AgentMemory } from "@redis-iris/agent-memory";
 import { loadConfig } from "./config.js";
 import { MemoryGateway } from "./memory.js";
 import { loadMemoryEnvironment } from "./shared-settings.js";
+import { loadProjectGuardrails } from "./privacy.js";
 import { runServer } from "./server.js";
 
 function lazyGateway(): MemoryGateway {
@@ -27,8 +28,8 @@ function lazyGateway(): MemoryGateway {
 }
 
 async function main() {
-  await loadMemoryEnvironment(process.env.MEMORY_CAPTURE_PROJECT_ROOT ?? process.cwd());
-  await runServer(lazyGateway());
+  await loadMemoryEnvironment(process.env.MEMORY_CAPTURE_PROJECT_ROOT ?? process.env.CLAUDE_PROJECT_DIR ?? process.cwd());
+  await runServer(lazyGateway(), loadProjectGuardrails(process.env.MEMORY_CAPTURE_PROJECT_ROOT ?? process.env.CLAUDE_PROJECT_DIR ?? process.cwd()));
 }
 
 main().catch((error: unknown) => {

@@ -1,12 +1,13 @@
 import { createHash, randomUUID } from "node:crypto";
 import { mkdir, readFile, readdir, rename, unlink, writeFile, open } from "node:fs/promises";
 import { basename, join } from "node:path";
-import { redactSensitiveText, sanitizeMemory, sanitizeCapturedText } from "./privacy.js";
+import { redactSensitiveText, sanitizeMemory, sanitizeCapturedText, guardrailsSchema, roleAllowed, type Guardrails } from "./privacy.js";
 import { defaultOwnerId } from "./identity.js";
 import * as z from "zod/v4";
 
 const identifier = z.string().regex(/^[A-Za-z0-9-]{1,64}$/);
 export const captureConfigSchema = z.object({
+  guardrails: guardrailsSchema.optional(),
   ownerId: identifier.optional(),
   namespace: identifier.optional(),
   sessionId: identifier.optional(),
@@ -57,8 +58,8 @@ export function scope(config: CaptureConfig, root: string, source: string, input
   };
 }
 
-export function redactCaptureText(text: string, secrets: string[] = []): string {
-  return redactSensitiveText(text, secrets);
+export function redactCaptureText(text: string, secrets: string[] = [], guardrails: Guardrails = {}): string {
+  return redactSensitiveText(text, secrets, guardrails);
 }
 
 export function makeEntry(
@@ -69,8 +70,8 @@ export function makeEntry(
   const role = input.hook_event_name === "UserPromptSubmit" ? "USER"
     : input.hook_event_name === "Stop" ? "ASSISTANT" : undefined;
   let content = role === "USER" ? input.prompt : role === "ASSISTANT" ? input.last_assistant_message : undefined;
-  if (!content || !role) return null;
-  content = redactCaptureText(content, secrets);
+  if (!content || !role || !roleAllowed(role, config.guardrails)) return null;
+  content = redactCaptureText(content, secrets, config.guardrails);
   const resolved = scope(config, root, source, input);
   // Codex provides a turn ID. Claude events without one get a fresh identity so
   // submitting the same prompt twice still captures two separate turns.
@@ -80,18 +81,23 @@ export function makeEntry(
   return { version: 1, memories: chunks.map((text, index) => ({
     id: `turn-${digest(JSON.stringify([resolved, source, eventIdentity, role, index]))}`,
     text: JSON.stringify(sanitizeMemory({ role, source, sourceSessionId: input.session_id,
-      turnId: input.turn_id, capturedAt: now, part: index + 1, parts: chunks.length, content: text }, secrets)),
+      turnId: input.turn_id, capturedAt: now, part: index + 1, parts: chunks.length, content: text }, secrets, config.guardrails)),
     memory_type: "message", owner_id: resolved.owner, namespace: resolved.namespace,
     session_id: resolved.session, topics: ["auto-capture", source, role.toLowerCase()],
   })) };
 }
 
-export async function enqueue(directory: string, entry: QueueEntry): Promise<string> {
+function capturedRoleAllowed(text: string, guardrails: Guardrails): boolean {
+  try { return roleAllowed(JSON.parse(text).role, guardrails); }
+  catch { return guardrails.capturePrompts !== false && guardrails.captureResponses !== false; }
+}
+
+export async function enqueue(directory: string, entry: QueueEntry, secrets: string[] = [], guardrails: Guardrails = {}): Promise<string> {
   await mkdir(directory, { recursive: true, mode: 0o700 });
   const filename = `${Date.now()}-${randomUUID()}.json`;
   const temporary = join(directory, `${filename}.tmp`);
   const final = join(directory, filename);
-  await writeFile(temporary, JSON.stringify({ ...entry, memories: entry.memories.map(memory => ({ ...memory, text: sanitizeCapturedText(memory.text) })) }), { mode: 0o600, flag: "wx" });
+  await writeFile(temporary, JSON.stringify({ ...entry, memories: entry.memories.filter(memory => capturedRoleAllowed(memory.text, guardrails)).map(memory => ({ ...memory, text: sanitizeCapturedText(memory.text, secrets, guardrails) })) }), { mode: 0o600, flag: "wx" });
   await rename(temporary, final);
   return final;
 }
@@ -103,7 +109,7 @@ export async function pendingCount(directory: string): Promise<number> {
   })).filter(file => file.endsWith(".json")).length;
 }
 
-export async function flush(directory: string, transport: CaptureTransport): Promise<{ sent: number; pending: number; busy?: boolean }> {
+export async function flush(directory: string, transport: CaptureTransport, secrets: string[] = [], guardrails: Guardrails = {}): Promise<{ sent: number; pending: number; busy?: boolean }> {
   await mkdir(directory, { recursive: true, mode: 0o700 });
   const lockPath = join(directory, ".flush-lock");
   let lock;
@@ -131,14 +137,15 @@ export async function flush(directory: string, transport: CaptureTransport): Pro
       const entry = JSON.parse(await readFile(path, "utf8")) as QueueEntry;
       if (entry.version !== 1 || !Array.isArray(entry.memories)) throw new Error("Invalid capture queue entry");
       for (let start = 0; start < entry.memories.length; start += 100) {
-        const batch = entry.memories.slice(start, start + 100).map(memory => ({ ...memory, text: sanitizeCapturedText(memory.text) }));
+        const batch = entry.memories.slice(start, start + 100).filter(memory => capturedRoleAllowed(memory.text, guardrails)).map(memory => ({ ...memory, text: sanitizeCapturedText(memory.text, secrets, guardrails) }));
+        if (!batch.length) continue;
         const response = await transport.create(batch);
         if (response.errors?.length || batch.some(memory => !response.created.includes(memory.id))) {
           throw new Error("Capture write was not fully acknowledged; retained for retry");
         }
+        sent += batch.length;
       }
       await unlink(path);
-      sent += entry.memories.length;
     }
     return { sent, pending: await pendingCount(directory) };
   } finally {

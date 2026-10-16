@@ -9,7 +9,7 @@ test("an MCP client can discover and call the bridge tools", async () => {
   const gateway = {
     health: async () => ({ status: "ok" }),
   } as unknown as MemoryGateway;
-  const server = createServer(gateway);
+  const server = createServer(gateway, {redact: {email: false}, captureResponses: false});
   const client = new Client(
     { name: "bridge-test", version: "1.0.0" },
     { capabilities: {} },
@@ -21,6 +21,8 @@ test("an MCP client can discover and call the bridge tools", async () => {
     client.connect(clientTransport),
   ]);
 
+  assert(client.getInstructions()?.includes('"email":false'));
+  assert(client.getInstructions()?.includes("saving ASSISTANT messages is disabled"));
   const tools = await client.listTools();
   assert.deepEqual(
     tools.tools.map((tool) => tool.name).sort(),

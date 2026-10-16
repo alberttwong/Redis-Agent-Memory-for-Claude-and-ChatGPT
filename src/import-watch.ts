@@ -30,7 +30,7 @@ export class ImportWatcher {
   async scan(options: WatchImportOptions): Promise<WatchImportEvent[]> {
     const events: WatchImportEvent[] = [];
     const scope = hash(JSON.stringify([options.directory, options.ownerId, options.namespace,
-      options.after, options.before, options.conversation, options.limit]));
+      options.after, options.before, options.conversation, options.limit, options.guardrails]));
     const statePath = join(options.stateDirectory, `${scope}.json`);
     let completed: Record<string, true> = {};
     try {
@@ -71,7 +71,7 @@ export class ImportWatcher {
             events.push({ provider, file, status: "preview", records: plan.records.length });
             continue;
           }
-          const result = await enqueueImport(options.queue, plan.records);
+          const result = await enqueueImport(options.queue, plan.records, options.secrets, options.guardrails);
           // Persist only after durable queueing. Network outages are retried by flush.
           completed[fingerprint] = true;
           await mkdir(options.stateDirectory, { recursive: true, mode: 0o700 });

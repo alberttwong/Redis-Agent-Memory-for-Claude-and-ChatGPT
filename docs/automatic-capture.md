@@ -67,12 +67,52 @@ Capture does not read `AGENT_MEMORY_NAMESPACE_ID` or `AGENT_MEMORY_NAMESPACE` fo
 
 - `UserPromptSubmit` saves the supplied prompt before the model processes it.
 - `Stop` saves `last_assistant_message` when supplied by the client. Missing final-message fields are skipped; intermediate assistant messages, tool output, files, hidden reasoning, and aborted responses are not captured.
-- Each record includes capture time, role, client, original session ID, optional turn ID, and chunk order. Long inputs are redacted and split into records of at most 6,000 characters per content chunk.
-- The configured Redis API key and recognized credentials, labelled sensitive values, email addresses, US phone/SSN patterns, and card-number-like sequences are redacted before new records enter the local queue. Queued text is checked again before upload. Detection is best effort: omit sensitive information and disable capture for sensitive conversations, since names, addresses, and contextual PII may not be recognized. Existing stored records and older queue files are not retroactively cleaned.
+- By default, each record includes capture time, role, client, original session ID, optional turn ID, and chunk order. Long inputs are redacted and split into records of at most 6,000 characters per content chunk.
+- By default, the configured Redis API key and recognized credentials, labelled sensitive values, email addresses, US phone/SSN patterns, and card-number-like sequences are redacted before new records enter the local queue. Queued text is checked again before upload. Detection is best effort: omit sensitive information and disable capture for sensitive conversations, since names, addresses, and contextual PII may not be recognized. Existing stored records are not retroactively cleaned; older queue files are checked against the current policy when retried.
 
 The handler uses the **native MCP `create_long_term_memories` tool with `memory_type: "message"`**. This is explicit transcript capture; it does not use Redis's ordered session-memory API or trigger that API's summarization/extraction path. Each captured chunk is embedded and subject to long-term-memory retention/cost. A native MCP session-append tool was not advertised by the tested deployment. The bridge's existing session tools remain available separately.
 
 Startup recall uses filter-only `search_long_term_memory`, scoped to owner, namespace, and the `auto-capture` topic, ordered by update time. It returns at most `recallLimit` records (default 6) and limits context to 18,000 characters. This gives recent context, not a complete reconstruction of every conversation or a semantic summary. Retrieved content is marked as historical data; the agent still needs to verify the repository state.
+
+## Configure memory guardrails
+
+Add `guardrails` to the project's `.memory-capture.json`, preserving its existing fields. Omitted settings retain their defaults. For example, this policy allows email addresses, keeps other default redaction rules, adds a custom rule and sensitive metadata field, disables response saving, and omits original session/turn IDs:
+
+```json
+{
+  "enabled": true,
+  "guardrails": {
+    "redact": {
+      "email": false
+    },
+    "sensitiveFields": ["employeeCode"],
+    "customPatterns": ["CLIENT-[0-9]+"],
+    "capturePrompts": true,
+    "captureResponses": false,
+    "omitFields": ["sourceSessionId", "turnId"]
+  }
+}
+```
+
+| Setting | Default | Effect |
+| --- | --- | --- |
+| `redact.credentials` | `true` | Recognized keys, tokens, private keys, bearer headers, credential URLs, and labelled credential values |
+| `redact.email`, `redact.phone` | `true` | Email addresses and US phone patterns, plus matching labelled values and metadata keys |
+| `redact.governmentIds` | `true` | US SSN patterns and labelled SSN/passport fields |
+| `redact.financial` | `true` | Card-number-like sequences and labelled card/bank-account fields |
+| `redact.personal` | `true` | Labelled name, address, birth-date, and medical-record fields |
+| `sensitiveFields` | `[]` | Additional structured field names whose values are redacted, matched case-insensitively at any depth |
+| `customPatterns` | `[]` | JavaScript regular expression strings applied to text and metadata strings with global, case-insensitive matching |
+| `capturePrompts`, `captureResponses` | `true` | Allow USER and ASSISTANT messages, respectively, in capture, imports, and bridge appends |
+| `omitFields` | `[]` | Remove selected optional context fields from structured envelopes, metadata, and checkpoints |
+
+Allowed `omitFields` values are `sourceSessionId`, `turnId`, `capturedAt`, `sourceFile`, `sourceConversationId`, `conversationTitle`, `sourceMessageId`, `repoPath`, `branch`, `commit`, and `changedFiles`. This removes structured fields, not mentions inside prose. Owner, namespace, derived session ID, record ID, source client, and role remain for routing and retrieval; backend timestamps are unaffected. Disable capture entirely with `enabled: false` to stop local automatic saving and recall.
+
+The configured Redis API key is always redacted, even with `redact.credentials: false`. A disabled category permits that information unless another enabled rule matches it. Default detection remains pattern-based and does not recognize every name, address, or sensitive context. Custom patterns are trusted project configuration; avoid expressions with expensive backtracking.
+
+Capture, import previews/writes, and queue delivery use this policy. Retries apply the latest rules and discard queued USER/ASSISTANT records whose saving has since been disabled. Previously removed text cannot be recovered by relaxing a rule. The policy does not rewrite existing Redis memories. Prompt recall uses the same text redaction rules, but disabling prompt saving does not disable sending a redacted query to Redis; set `promptRecall: false` to stop per-prompt searches.
+
+The local MCP bridge reads the same file from `MEMORY_CAPTURE_PROJECT_ROOT`, then `CLAUDE_PROJECT_DIR` when available, then its working directory. Restart the bridge/chat after changes so its policy and agent instructions reload. Hooks reload the file on each invocation; restart a running import watcher to reload its policy. Invalid guardrail settings prevent writes instead of falling back to permissive behavior. `status` reports the resolved guardrails. Native Redis connections outside this bridge do not apply these local settings; the remote-only plugin retains default instructions.
 
 ## Relevant memories before each prompt
 

@@ -1,6 +1,8 @@
+import { loadProjectGuardrails, type Guardrails } from "./privacy.js";
 import { defaultOwnerId } from "./identity.js";
 
 export type AppConfig = {
+  guardrails?: Guardrails;
   baseUrl: string;
   storeId: string;
   apiKey: string;
@@ -25,6 +27,7 @@ function optional(env: NodeJS.ProcessEnv, name: string): string | undefined {
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   return {
+    guardrails: loadProjectGuardrails(env.MEMORY_CAPTURE_PROJECT_ROOT ?? env.CLAUDE_PROJECT_DIR ?? process.cwd()),
     baseUrl: required(env, "AGENT_MEMORY_BASE_URL").replace(/\/+$/, ""),
     storeId: required(env, "AGENT_MEMORY_STORE_ID"),
     apiKey: required(env, "AGENT_MEMORY_API_KEY"),

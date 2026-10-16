@@ -66,6 +66,16 @@ globalThis.fetch = async (url, options) => {
     const disabled = await run("success", { promptRecall: false });
     assert.ok(disabled.calls.every(call => call.name !== "search_long_term_memory"));
     assert.ok(disabled.calls.some(call => call.name === "create_long_term_memories"), "Turning off retrieval must preserve saving");
+    const policy = await run("success", { guardrails: {
+      redact: { credentials: false }, customPatterns: ["Checkout"], omitFields: ["sourceSessionId"]
+    } });
+    const saved = policy.calls.find(call => call.name === "create_long_term_memories").arguments.memories;
+    assert.ok(saved.every(memory => JSON.parse(memory.text).content === "[REDACTED] retries [REDACTED] mem1_sample"));
+    assert.ok(saved.every(memory => JSON.parse(memory.text).sourceSessionId === undefined));
+    assert.ok(!JSON.stringify(saved).includes("test-key"), "Configured Redis key is mandatory redaction");
+    const noPrompts = await run("success", { guardrails: { capturePrompts: false } });
+    assert.ok(noPrompts.calls.every(call => call.name !== "create_long_term_memories"));
+    assert.ok(noPrompts.calls.some(call => call.name === "search_long_term_memory"));
     console.log(`${source}: packaged prompt recall, scoped semantic query, search-before-save, independent failures, and retrieval opt-out passed.`);
   }
 } finally { await rm(directory, { recursive: true, force: true }); }

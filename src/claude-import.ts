@@ -1,4 +1,4 @@
-import { redactSensitiveText, sanitizeMemory } from "./privacy.js";
+import { redactSensitiveText, sanitizeMemory, roleAllowed, type Guardrails } from "./privacy.js";
 import { createHash } from "node:crypto";
 import { readFile, readdir, stat } from "node:fs/promises";
 import { basename, extname, join } from "node:path";
@@ -31,6 +31,7 @@ export type ClaudeImportOptions = {
   conversation?: string;
   limit?: number;
   secrets?: string[];
+  guardrails?: Guardrails;
 };
 
 export type ClaudeImportPlan = {
@@ -290,9 +291,9 @@ function records(items: ParsedItem[], options: ClaudeImportOptions, provider: Im
   records: CapturedMemory[];
   selected: number;
 } {
-  const selected = items.filter((item) => included(item, options)).slice(0, options.limit);
+  const selected = items.filter((item) => included(item, options) && roleAllowed(item.role, options.guardrails)).slice(0, options.limit);
   return { selected: selected.length, records: selected.flatMap((item) => {
-    const content = redactSensitiveText(item.content, options.secrets ?? []);
+    const content = redactSensitiveText(item.content, options.secrets ?? [], options.guardrails);
     const chunks = content.match(/[\s\S]{1,6000}/g) ?? [];
     const sessionId = `${provider}-${digest(item.conversationId)}`;
     return chunks.map((chunk, part) => ({
@@ -308,7 +309,7 @@ function records(items: ParsedItem[], options: ClaudeImportOptions, provider: Im
         part: part + 1,
         parts: chunks.length,
         content: chunk,
-      }, options.secrets ?? [])),
+      }, options.secrets ?? [], options.guardrails)),
       memory_type: "message" as const,
       owner_id: options.ownerId,
       namespace: options.namespace,
@@ -364,6 +365,8 @@ export async function planChatGptImport(
 export async function enqueueImport(
   directory: string,
   records: CapturedMemory[],
+  secrets: string[] = [],
+  guardrails: Guardrails = {},
 ): Promise<{ enqueued: number; alreadyPending: number }> {
   const pendingIds = new Set<string>();
   for (const name of await readdir(directory).catch((error: NodeJS.ErrnoException) => {
@@ -376,7 +379,7 @@ export async function enqueueImport(
   }
   const fresh = records.filter((memory) => !pendingIds.has(memory.id));
   for (let start = 0; start < fresh.length; start += 100) {
-    await enqueue(directory, { version: 1, memories: fresh.slice(start, start + 100) });
+    await enqueue(directory, { version: 1, memories: fresh.slice(start, start + 100) }, secrets, guardrails);
   }
   return { enqueued: fresh.length, alreadyPending: records.length - fresh.length };
 }

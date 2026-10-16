@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { spawnSync } from "node:child_process";
-import { mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -149,4 +149,28 @@ test("imports sanitize PII in titles and credentials in content for both provide
       assert(!JSON.stringify(plan.records).includes("person@example.com"));
     }
   } finally { await rm(directory, { recursive: true, force: true }); }
+});
+
+test("imports and queueing share the configured category and context policy", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "ram-policy-import-"));
+  const input = join(directory, "conversations.json");
+  const guardrails = {redact: {email: false}, captureResponses: false, omitFields: ["conversationTitle", "sourceFile"] as Array<"conversationTitle" | "sourceFile">};
+  try {
+    await writeFile(input, JSON.stringify([{uuid: "chat-1", name: "Private title", chat_messages: [
+      {uuid: "m1", sender: "human", text: "person@example.com"},
+      {uuid: "m2", sender: "assistant", text: "Skip this response"},
+    ]}]));
+    const plan = await planClaudeImport(input, {...options, guardrails});
+    assert.equal(plan.records.length, 1);
+    assert.equal(plan.skipped, 1);
+    const envelope = JSON.parse(plan.records[0].text);
+    assert.equal(envelope.content, "person@example.com");
+    assert.equal(envelope.conversationTitle, undefined);
+    assert.equal(envelope.sourceFile, undefined);
+    const queue = join(directory, "queue");
+    await enqueueImport(queue, plan.records, [], guardrails);
+    const { readdir } = await import("node:fs/promises");
+    const [queued] = await readdir(queue);
+    assert((await readFile(join(queue, queued), "utf8")).includes("person@example.com"));
+  } finally { await rm(directory, {recursive: true, force: true}); }
 });

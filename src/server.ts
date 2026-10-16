@@ -1,6 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import * as z from "zod/v4";
+import { guardrailInstructions, type Guardrails } from "./privacy.js";
 import type { Checkpoint, MemoryGateway, MemoryScope } from "./memory.js";
 
 const id = z
@@ -54,15 +55,15 @@ function safely<T extends Record<string, unknown>>(
   return handler().then(result).catch(errorResult);
 }
 
-export function createServer(gateway: MemoryGateway): McpServer {
+export function createServer(gateway: MemoryGateway, guardrails: Guardrails = {}): McpServer {
   const server = new McpServer(
     { name: "redis-agent-memory", version: "0.1.5" },
     {
       instructions:
         "Best-effort memory workflow: this server cannot observe messages unless you call its tools. "
         + "Choose a stable, non-sensitive sessionId for the conversation. Use resume_context before continuing existing work. "
-        + "Append substantive user and assistant turns with memory_append without asking the user for memory identifiers, "
-        + "and save a checkpoint after material progress and before a handoff. Never store passwords, API keys, tokens, private keys, raw environment files, or sensitive personal information (PII), including contact details, government IDs, financial or medical information. Omit sensitive details or use placeholders in text, metadata, checkpoints, and identifiers; when unsure, do not store the detail. Never claim that passive capture occurred.",
+        + "Append permitted substantive user and assistant turns with memory_append without asking the user for memory identifiers, "
+        + "and save a checkpoint after material progress and before a handoff. Never claim that passive capture occurred. " + guardrailInstructions(guardrails),
     },
   );
 
@@ -81,7 +82,7 @@ export function createServer(gateway: MemoryGateway): McpServer {
     {
       title: "Append conversation memory",
       description:
-        "Append a sanitized user, assistant, or system event to ordered session memory. Omit credentials and sensitive personal information.",
+        "Append a sanitized user, assistant, or system event to ordered session memory. Follow the configured memory guardrails.",
       inputSchema: {
         sessionId: id.describe("Durable task/session ID shared by all agents"),
         role: z.enum(["USER", "ASSISTANT", "SYSTEM"]),
@@ -159,7 +160,7 @@ export function createServer(gateway: MemoryGateway): McpServer {
     {
       title: "Save agent handoff checkpoint",
       description:
-        "Create or update the canonical durable checkpoint for a task session. Omit credentials and sensitive personal information from every field.",
+        "Create or update the canonical durable checkpoint for a task session. Follow the configured memory guardrails for every field.",
       inputSchema: {
         sessionId: id,
         summary: z.string().min(1).max(20_000),
@@ -229,8 +230,8 @@ export function createServer(gateway: MemoryGateway): McpServer {
   return server;
 }
 
-export async function runServer(gateway: MemoryGateway): Promise<void> {
-  const server = createServer(gateway);
+export async function runServer(gateway: MemoryGateway, guardrails: Guardrails = {}): Promise<void> {
+  const server = createServer(gateway, guardrails);
   await server.connect(new StdioServerTransport());
   console.error("Redis Agent Memory MCP server running on stdio");
 }
