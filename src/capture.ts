@@ -1,6 +1,7 @@
+import { recordDiagnostic } from "./diagnostics.js";
 import { createHash, randomUUID } from "node:crypto";
 import { mkdir, readFile, readdir, rename, unlink, writeFile, open } from "node:fs/promises";
-import { basename, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { redactSensitiveText, sanitizeMemory, sanitizeCapturedText, guardrailsSchema, roleAllowed, type Guardrails } from "./privacy.js";
 import { defaultOwnerId } from "./identity.js";
 import * as z from "zod/v4";
@@ -38,7 +39,7 @@ export type CapturedMemory = {
 export type QueueEntry = { version: 1; memories: CapturedMemory[] };
 export interface CaptureTransport {
   create(memories: CapturedMemory[]): Promise<{ created: string[]; errors?: unknown[] | null }>;
-  recall(owner: string, namespace: string, limit: number): Promise<Array<{ text: string }>>;
+  recall(owner: string, namespace: string, limit: number): Promise<Array<{ text: string; id?: string }>>;
 }
 
 export function digest(value: string): string {
@@ -99,6 +100,7 @@ export async function enqueue(directory: string, entry: QueueEntry, secrets: str
   const final = join(directory, filename);
   await writeFile(temporary, JSON.stringify({ ...entry, memories: entry.memories.filter(memory => capturedRoleAllowed(memory.text, guardrails)).map(memory => ({ ...memory, text: sanitizeCapturedText(memory.text, secrets, guardrails) })) }), { mode: 0o600, flag: "wx" });
   await rename(temporary, final);
+  await recordBatch(directory, "capture", entry.memories.filter(memory => capturedRoleAllowed(memory.text, guardrails)));
   return final;
 }
 
@@ -144,6 +146,7 @@ export async function flush(directory: string, transport: CaptureTransport, secr
           throw new Error("Capture write was not fully acknowledged; retained for retry");
         }
         sent += batch.length;
+        await recordBatch(directory, "delivery", batch);
       }
       await unlink(path);
     }
@@ -151,5 +154,19 @@ export async function flush(directory: string, transport: CaptureTransport, secr
   } finally {
     await lock.close();
     await unlink(lockPath);
+  }
+}
+
+async function recordBatch(directory: string, kind: "capture" | "delivery", memories: CapturedMemory[]) {
+  const groups = new Map<string, { owner: string; namespace: string; source: string; count: number }>();
+  for (const memory of memories) {
+    const identity = { owner: memory.owner_id, namespace: memory.namespace, source: memory.topics[0] === "auto-capture" ? memory.topics[1] ?? "unknown" : memory.topics[0] ?? "unknown" };
+    const key = JSON.stringify(identity);
+    const group = groups.get(key);
+    if (group) group.count++;
+    else groups.set(key, { ...identity, count: 1 });
+  }
+  for (const { count, ...identity } of groups.values()) {
+    await recordDiagnostic(join(dirname(directory), "diagnostics"), identity, kind, { count });
   }
 }
