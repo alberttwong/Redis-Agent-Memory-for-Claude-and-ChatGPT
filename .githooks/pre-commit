@@ -1,0 +1,9 @@
+#!/bin/sh
+set -eu
+
+# Tests create temporary repositories; do not pass this repository's Git context.
+for git_env_var in $(git rev-parse --local-env-vars); do
+  unset "$git_env_var"
+done
+
+npm run test:unit
