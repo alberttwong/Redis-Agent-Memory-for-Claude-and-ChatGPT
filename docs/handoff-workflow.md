@@ -1,5 +1,7 @@
 # Technical handoff guide
 
+[Back to README](../README.md)
+
 For the user-facing walkthrough, see the [README use cases](../README.md#use-cases).
 
 ## Configure shared context
@@ -9,6 +11,16 @@ The examples here use the optional local bridge. For a direct native connection,
 Connect both clients to the same Redis Agent Memory endpoint and store, with matching owner and namespace settings. Use a stable session ID for each task, such as `checkout-retry-123`. Configure separate namespaces for different projects. Owner and namespace filters organize retrieval and do not replace service authentication or authorization.
 
 Both agents need access to the relevant repository and files. Memory records describe the work but do not transfer files or running processes.
+
+## Scope compatibility
+
+Capture and imports use the native MCP `namespace` label from `.memory-capture.json` (or the project-path fallback). They do **not** use `AGENT_MEMORY_NAMESPACE_ID` or `AGENT_MEMORY_NAMESPACE` to select their namespace. Bridge tools prefer a namespace resource ID (`namespaceId` / `AGENT_MEMORY_NAMESPACE_ID`), then fall back to a legacy namespace label (`namespace` / `AGENT_MEMORY_NAMESPACE`). These fields are not interchangeable.
+
+To search captured or imported messages through the bridge, use the same owner and legacy namespace label, with no namespace resource ID configured on that bridge connection. If the server has a default resource ID, passing a legacy `namespace` argument does not override it. Alternatively, query the native endpoint directly with the capture owner's `owner_id` and `namespace`. Confirm the resolved capture scope with `status`; matching credentials alone is not enough.
+
+The Claude browser form and MCPB extension default their legacy namespace to `claude-desktop`; project capture usually derives a different label. Set an explicit shared label when these workflows should search the same memories. Different stores, owners, or namespace fields can produce successful searches with no matching results.
+
+Choose a unique bridge `sessionId` per task within a shared store, for example `checkout-alex-retry-123`. Session reads take the session ID directly and do not add owner or namespace filters. Checkpoint IDs include owner, namespace, and session, but that does not isolate the ordered session history. Capture-generated conversation IDs and imported conversation IDs are separate from a manually chosen bridge task session.
 
 ## Save and resume with the bridge
 
@@ -22,13 +34,13 @@ Example prompts:
 
 `resume_context` retrieves the checkpoint, session history, and relevant long-term memories. When retrieving the original conversation events directly, request `memory_get_session` with `includeSummarisedEvents: true`.
 
-For decisions across related tasks, use `memory_search` within the same owner and project namespace. Relevant long-term memories become available across sessions after Redis has extracted them, or when explicitly saved as checkpoints.
+For decisions across related tasks, use `memory_search` within the same owner and project namespace. Long-term search can find captured and imported messages, explicit checkpoints, and facts extracted asynchronously from ordered session events, provided the scope matches. Session events are not searchable as long-term memories until extraction has produced those records.
 
 Save regularly: if a usage limit interrupts an agent before its next checkpoint, the next agent can recover only what was already saved and the files available in the shared working tree.
 
 ## Architecture
 
-The recommended direct connection shares long-term memory through the native endpoint:
+Capture hooks and optional native tools share long-term memory through the native endpoint:
 
 ```mermaid
 flowchart TD

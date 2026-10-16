@@ -4,7 +4,7 @@ This is the manually installed ChatGPT/Codex desktop profile. It bundles a local
 
 The hook does nothing in projects without `.memory-capture.json`. Run the `setup-redis-memory` skill after installation to create the project configuration and private `.env` template.
 
-Because this package contains lifecycle hooks, it is for local or repository marketplaces and is not eligible for the public plugin directory.
+This package targets local or repository marketplaces. Its command hooks require local execution and trust; they do not run in cloud-orchestrated Work. Public-directory acceptance has not been validated.
 
 The Git marketplace points directly to this directory and includes both bundled runtime files. Installation does not require npm or a build. Maintainers should regenerate them with `npm run plugin:runtime` after source changes.
 

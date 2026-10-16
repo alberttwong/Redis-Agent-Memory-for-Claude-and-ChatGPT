@@ -1,12 +1,12 @@
 # Optional bridge setup
 
-[Back to the README](../README.md)
+[Back to README](../README.md)
 
 These steps install the optional local bridge for ordered session history and structured checkpoints. They are separate from [automatic prompt capture](automatic-capture.md), which uses the native endpoint directly. Run shell commands from the repository root.
 
 ### 1. Configure Redis Agent Memory
 
-Clone the repository (requires access while the repository is private):
+Install Node.js 20.12 or later and clone the repository:
 
 ```sh
 git clone https://github.com/alberttwong/redis-agent-memory-mcp.git
@@ -36,11 +36,11 @@ AGENT_MEMORY_AGENT_ID=shared-agent
 ### 2. Build and verify
 
 ```sh
-npm install
+npm ci
 npm test
 ```
 
-The launch script loads `.env`, finds Node through NVM when necessary, builds on first run, and starts the stdio MCP server:
+The launch script resolves Redis settings from the process environment, then the checkout's `.env`, then shared defaults. It finds Node through NVM when necessary, builds if the compiled entry point is missing, and starts the stdio MCP server:
 
 ```sh
 ./scripts/start.sh
@@ -48,7 +48,7 @@ The launch script loads `.env`, finds Node through NVM when necessary, builds on
 
 ### 3. Connect Claude Code
 
-Copy `.mcp.json.example` to `.mcp.json` in the project Claude will work in. Update the absolute path if this bridge moves:
+Copy `.mcp.json.example` to `.mcp.json` in the project Claude will work in. Replace its placeholder with the absolute path to this checkout's `scripts/start.sh`:
 
 ```sh
 cp -n .mcp.json.example .mcp.json

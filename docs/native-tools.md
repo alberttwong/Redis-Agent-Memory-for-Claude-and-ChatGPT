@@ -1,12 +1,14 @@
 # Native Redis Agent Memory tools
 
-This document records the native MCP tools verified against the configured Redis Agent Memory endpoint and the handoff workflow that uses them directly. These tools are separate from the optional local bridge's camelCase tools.
+[Back to README](../README.md)
+
+This document records the previously observed native MCP tool inventory for a configured Redis Agent Memory endpoint and the handoff workflow that uses them directly. These tools are separate from the optional local bridge's camelCase tools.
 
 ## Verified native tools
 
-A live test on October 15, 2026 successfully authenticated, initialized an MCP client, discovered nine tools, and executed a read-only `search_long_term_memory` call scoped to a synthetic test owner and namespace. It returned an empty result without errors. No memories were written or deleted during testing.
+The project's October 15, 2026 test notes report that a live test successfully authenticated, initialized an MCP client, discovered nine tools, and executed a read-only `search_long_term_memory` call scoped to a synthetic test owner and namespace. It returned an empty result without errors. No memories were written or deleted during testing.
 
-The tested endpoint exposed:
+This is a deployment snapshot, not a fresh connectivity check or a guarantee of the service's current tool inventory. The recorded endpoint exposed:
 
 - `create_long_term_memories`
 - `search_long_term_memory`
