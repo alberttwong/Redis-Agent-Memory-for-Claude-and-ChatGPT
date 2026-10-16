@@ -1,3 +1,4 @@
+import { boundedContext, defaultContextChars, maxContextChars } from "./context-budget.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import * as z from "zod/v4";
@@ -33,10 +34,14 @@ function scopeOf(input: {
   };
 }
 
+const contextSchema = {
+  maxChars: z.number().int().min(1024).max(maxContextChars).optional().describe("Serialized response character budget; increase for truncated details"),
+};
+
 function result(value: unknown) {
   const serialized = JSON.parse(JSON.stringify(value)) as Record<string, unknown>;
   return {
-    content: [{ type: "text" as const, text: JSON.stringify(serialized, null, 2) }],
+    content: [{ type: "text" as const, text: JSON.stringify(serialized) }],
     structuredContent: serialized,
   };
 }
@@ -67,6 +72,9 @@ export function createServer(gateway: MemoryGateway, guardrails: Guardrails = {}
     },
   );
 
+  const read = async (handler: () => Promise<Record<string, unknown>>, maxChars?: number) =>
+    boundedContext(await handler(), maxChars ?? await gateway.contextChars?.() ?? defaultContextChars);
+
   server.registerTool(
     "memory_health",
     {
@@ -82,7 +90,7 @@ export function createServer(gateway: MemoryGateway, guardrails: Guardrails = {}
     {
       title: "Append conversation memory",
       description:
-        "Append a sanitized user, assistant, or system event to ordered session memory. Follow the configured memory guardrails.",
+        "Use to save an important conversation turn or decision in ordered session history. Use checkpoint_save for a compact handoff instead of copying the whole conversation. Follow memory guardrails; avoid duplicate writes when hooks already captured the turn.",
       inputSchema: {
         sessionId: id.describe("Durable task/session ID shared by all agents"),
         role: z.enum(["USER", "ASSISTANT", "SYSTEM"]),
@@ -115,15 +123,24 @@ export function createServer(gateway: MemoryGateway, guardrails: Guardrails = {}
     {
       title: "Read session memory",
       description:
-        "Retrieve the ordered events and optional compacted summary for a session.",
+        "Use to inspect details from a known session after resume_context. Returns recent events first as a chronological page; increase eventOffset for older events or maxChars for truncated details.",
       inputSchema: {
         sessionId: id,
         includeSummarisedEvents: z.boolean().default(false),
+        eventOffset: z.number().int().min(0).default(0),
+        eventLimit: z.number().int().min(1).max(100).default(20),
+        ...contextSchema,
       },
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
-    async ({ sessionId, includeSummarisedEvents }) =>
-      safely(() => gateway.getSession(sessionId, includeSummarisedEvents)),
+    async ({ sessionId, includeSummarisedEvents, eventOffset, eventLimit, maxChars }) =>
+      safely(() => read(async () => {
+        const session = await gateway.getSession(sessionId, includeSummarisedEvents);
+        const events = session.events ?? [];
+        const end = Math.max(0, events.length - eventOffset);
+        const start = Math.max(0, end - eventLimit);
+        return { ...session, events: events.slice(start, end), eventPage: { eventOffset, eventLimit, total: events.length, nextOffset: start > 0 ? eventOffset + eventLimit : null } };
+      }, maxChars)),
   );
 
   server.registerTool(
@@ -131,8 +148,9 @@ export function createServer(gateway: MemoryGateway, guardrails: Guardrails = {}
     {
       title: "Search durable memory",
       description:
-        "Semantically search long-term memories, always scoped to an owner and optionally a namespace.",
+        "Use when prior decisions or saved facts could help, or to find a task whose session ID is unknown. Skip memory lookup for self-contained trivial questions. Results are relevance ordered and size bounded; narrow the query or increase maxChars for details. Always scoped to an owner and optionally a namespace.",
       inputSchema: {
+        ...contextSchema,
         query: z.string().min(1).max(10_000),
         limit: z.number().int().min(1).max(100).default(8),
         similarityThreshold: z.number().min(0).max(1).default(0.65),
@@ -144,14 +162,17 @@ export function createServer(gateway: MemoryGateway, guardrails: Guardrails = {}
     },
     async (input) =>
       safely(() =>
-        gateway.search({
-          ...scopeOf(input),
-          query: input.query,
-          limit: input.limit,
-          similarityThreshold: input.similarityThreshold,
-          memoryTypes: input.memoryTypes,
-          topics: input.topics,
-        }),
+        read(async () => {
+          const response = await gateway.search({
+            ...scopeOf(input),
+            query: input.query,
+            limit: input.limit,
+            similarityThreshold: input.similarityThreshold,
+            memoryTypes: input.memoryTypes,
+            topics: input.topics,
+          });
+          return { ...response, items: response.items?.slice(0, input.limit) };
+        }, input.maxChars),
       ),
   );
 
@@ -160,7 +181,7 @@ export function createServer(gateway: MemoryGateway, guardrails: Guardrails = {}
     {
       title: "Save agent handoff checkpoint",
       description:
-        "Create or update the canonical durable checkpoint for a task session. Follow the configured memory guardrails for every field.",
+        "Use after material progress or before switching agents to save the current goal, decisions, blockers, and next steps. Updates one canonical handoff per session; memory_append saves individual turns. Follow memory guardrails for every field.",
       inputSchema: {
         sessionId: id,
         summary: z.string().min(1).max(20_000),
@@ -205,8 +226,9 @@ export function createServer(gateway: MemoryGateway, guardrails: Guardrails = {}
     {
       title: "Build cross-agent resume context",
       description:
-        "Return the canonical checkpoint, current ordered session, and relevant durable memories in one call.",
+        "Use when asked to continue prior work with a known task session ID. Returns the checkpoint, recent session events, and relevant memories together; avoid repeating memory_search for the same context. Verify against current files. Increase maxChars or page memory_get_session for omitted details.",
       inputSchema: {
+        ...contextSchema,
         sessionId: id,
         query: z
           .string()
@@ -220,10 +242,10 @@ export function createServer(gateway: MemoryGateway, guardrails: Guardrails = {}
     },
     async (input) =>
       safely(() =>
-        gateway.resumeContext(input.sessionId, input.query, {
+        read(() => gateway.resumeContext(input.sessionId, input.query, {
           ...scopeOf(input),
           limit: input.limit,
-        }),
+        }), input.maxChars),
       ),
   );
 

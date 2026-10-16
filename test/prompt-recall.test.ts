@@ -32,18 +32,18 @@ test("queries and returned context redact credentials and stay bounded even with
   }, ["secret"]);
   assert.ok(context.length <= promptContextLimit && context.length > 100);
   assert.ok(!context.includes("secret") && !context.includes("mem1_token"));
-  assert.equal(JSON.parse(context.slice(context.indexOf("[")))[0].startsWith("[REDACTED] [REDACTED]"), true);
+  assert.equal(JSON.parse(context).memories[0].text.startsWith("[REDACTED] [REDACTED]"), true);
 });
 
 test("recall honors result limits and returns no context for empty matches", async () => {
   const configured = { ...config, promptRecallLimit: 1, promptRecallThreshold: 0.8 };
-  const context = await recallPrompt(configured, scope, "hello", async args => {
+  const context = await recallPrompt(configured, scope, "checkout retries", async args => {
     assert.equal(args.limit, 1);
     assert.equal(args.similarity_threshold, 0.8);
     return [{ text: "first" }, { text: "second" }];
   });
   assert.ok(context.includes("first") && !context.includes("second"));
-  assert.equal(await recallPrompt(config, scope, "hello", async () => []), "");
+  assert.equal(await recallPrompt(config, scope, "checkout retries", async () => []), "");
 });
 
 test("prompt recall uses shared privacy guardrails for query and historical context", async () => {
@@ -65,4 +65,16 @@ test("prompt recall follows configured redaction overrides and custom patterns",
   });
   assert(context.includes("person@example.com"));
   assert(!context.includes("CLIENT-456"));
+});
+
+test("greetings skip retrieval and duplicate matches consume context only once", async () => {
+  for (const prompt of ["hello", "Thanks!", "ok"]) {
+    assert.equal(await recallPrompt(config, scope, prompt, async () => { throw new Error("unexpected lookup"); }), "");
+  }
+  const context = await recallPrompt({ ...config, promptContextChars: 1024 }, scope, "resume checkout", async () => [
+    { text: "Keep seven attempts" }, { text: "Keep seven attempts" }, { text: "x".repeat(10000) },
+  ]);
+  assert(context.length <= 1024);
+  assert.equal(JSON.parse(context).memories.filter((m: any) => m.text === "Keep seven attempts").length, 1);
+  assert.equal(JSON.parse(context).contextBudget.truncated, true);
 });

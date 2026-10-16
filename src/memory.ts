@@ -95,6 +95,8 @@ export class MemoryGateway {
     private readonly config: AppConfig,
   ) {}
 
+  contextChars() { return this.config.contextChars ?? 12000; }
+
   health() {
     return this.client.storeHealth();
   }
@@ -233,6 +235,16 @@ export class MemoryGateway {
       }),
     ]);
 
-    return { checkpoint, session, recalled };
+    // Keep the canonical checkpoint first and avoid recalling it twice.
+    const seen = new Set<string>(checkpoint?.text ? [checkpoint.text.trim()] : []);
+    const items = (recalled.items ?? []).filter(item => {
+      const key = item.text?.trim();
+      if (item.id === checkpointId || (key && seen.has(key))) return false;
+      if (key) seen.add(key);
+      return true;
+    }).slice(0, inputScope.limit ?? 8);
+    const events = session.events ?? [];
+    return { checkpoint, recalled: { ...recalled, items }, session: { ...session, events: events.slice(-20) },
+      eventPage: { total: events.length, returned: Math.min(20, events.length), nextOffset: events.length > 20 ? 20 : null } };
   }
 }

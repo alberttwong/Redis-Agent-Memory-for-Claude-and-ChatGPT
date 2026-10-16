@@ -12,6 +12,8 @@ export const captureConfigSchema = z.object({
   namespace: identifier.optional(),
   sessionId: identifier.optional(),
   enabled: z.boolean().default(true),
+  startupContextChars: z.number().int().min(1024).max(100000).default(18000),
+  promptContextChars: z.number().int().min(1024).max(100000).default(5400),
   recallLimit: z.number().int().min(0).max(20).default(6),
   promptRecall: z.boolean().default(true),
   promptRecallLimit: z.number().int().min(0).max(20).default(5),

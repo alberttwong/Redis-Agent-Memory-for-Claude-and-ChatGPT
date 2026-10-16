@@ -158,3 +158,17 @@ test("MCP writes honor project policy for roles, metadata, and checkpoints", asy
   assert(!checkpoint.includes("CLIENT-123"));
   assert(!checkpoint.includes("repoPath"));
 });
+
+test("resume removes checkpoint/search duplicates and includes the latest session page", async () => {
+  const client = new FakeClient();
+  const gateway = new MemoryGateway(client, config);
+  await gateway.saveCheckpoint("task-1", { summary: "Run validation next" });
+  const checkpoint = client.records.get(gateway.checkpointId("task-1"));
+  client.searchLongTermMemory = async () => ({ items: [checkpoint, { id: "a", text: "Use retries" }, { id: "b", text: "Use retries" }] });
+  client.getSessionMemory = async () => ({ sessionId: "task-1", events: Array.from({ length: 50 }, (_, i) => ({ eventId: `e-${i}` })) });
+  const context = await gateway.resumeContext("task-1", "continue");
+  assert.deepEqual(context.recalled.items.map(item => item.id), ["a"]);
+  assert.equal(context.session.events?.[0].eventId, "e-30");
+  assert.equal(context.session.events?.at(-1)?.eventId, "e-49");
+  assert.equal(context.eventPage.nextOffset, 20);
+});

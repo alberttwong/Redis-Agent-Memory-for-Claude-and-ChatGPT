@@ -41,6 +41,7 @@
     "plugin:build:remote": "node scripts/build-chatgpt-plugin.mjs --remote-url",
     "plugin:test": "node scripts/build-chatgpt-runtime.mjs --check && npm run plugin:validate && npm run plugin:build && node scripts/build-chatgpt-plugin.mjs --remote-url https://memory.example.test/mcp --output build/redis-agent-memory-chatgpt-remote-test.zip && node scripts/smoke-chatgpt-plugin.mjs",
     "prepack": "npm run build",
+    "eval:recall": "npm run build && node scripts/eval-recall.mjs",
     "test": "npm run build && node --test dist/**/*.test.js && node scripts/smoke-prompt-recall.mjs",
     "test:e2e:handoff": "npm run mcpb:build && npm run plugin:build && node --test integration/claude-chatgpt.test.mjs",
     "claude-plugin:validate": "node scripts/validate-claude-marketplace.mjs",

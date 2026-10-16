@@ -113,3 +113,5 @@ Use a stable session ID such as `project-feature-123` in both agents.
 4. Codex verifies the repository and Git state, continues the work, appends important turns, and updates the same checkpoint.
 
 Long-term extraction is asynchronous. `resume_context` does not rely only on extraction: it fetches the deterministic checkpoint directly, then adds current session history and semantic recall.
+
+Read tools support configurable response budgets and older-event paging. See [recall budgets and evaluation](recall-budgets.md) for tool selection, limits, and validation.

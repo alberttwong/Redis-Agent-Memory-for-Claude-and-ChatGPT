@@ -68,7 +68,11 @@ test("the same MCP session uses credentials saved through its setup form", async
     assert.equal(config.baseUrl, "https://memory.example.test");
     assert.equal(config.storeId, fields.storeId);
     assert.equal(config.apiKey, fields.apiKey);
-    return { health: async () => ({ status: "ready" }) } as unknown as MemoryGateway;
+    return {
+      health: async () => ({ status: "ready" }),
+      contextChars: () => 2048,
+      search: async () => ({ items: [{ id: "decision", text: "Use backoff. " + "x".repeat(10000) }] }),
+    } as unknown as MemoryGateway;
   });
   const client = new Client({ name: "setup-test", version: "1.0.0" });
   t.after(async () => { await client.close(); await server.close(); await rm(directory, { recursive: true, force: true }); });
@@ -83,4 +87,8 @@ test("the same MCP session uses credentials saved through its setup form", async
   const health = await client.callTool({ name: "memory_health", arguments: {} });
   assert.deepEqual(health.structuredContent, { status: "ready" });
   assert.ok(!JSON.stringify(health).includes(fields.apiKey));
+  const recalled = await client.callTool({ name: "memory_search", arguments: { query: "prior decisions" } });
+  assert(!recalled.isError, JSON.stringify(recalled));
+  assert(JSON.stringify(recalled.structuredContent).length <= 2048);
+  assert.equal((recalled.structuredContent as any).contextBudget.maxChars, 2048);
 });
