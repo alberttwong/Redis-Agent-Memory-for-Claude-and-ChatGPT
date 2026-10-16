@@ -84,6 +84,7 @@ Redis Agent Memory provides:
 - Metadata filters for owner, session, namespace, topic, and memory type.
 - Project context for episodic recall: this plugin's local capture stores prompts and available final responses with a project namespace, source client, capture timestamp, session identifiers, and turn identifiers when available. These records provide a basis for finding past decisions and related exchanges within a project, such as “when we fixed authentication.”
 - Automatic summarization and extraction of durable facts.
+- Configurable session summarization: for example, **Summarize after: 20** and **Keep most recent: 10** summarizes the older 10 messages when a session reaches 20 messages, retaining the 10 most recent messages in full. Configure these settings in Redis Cloud or with the setup command below.
 - Semantic, keyword, and hybrid retrieval with metadata filters.
 - Python, TypeScript, and REST APIs.
 - Compatibility with any model provider or agent framework.
@@ -93,6 +94,22 @@ This project adds configurable memory privacy guardrails: per-project redaction 
 See the [Redis Agent Memory documentation](https://redis.io/docs/latest/develop/ai/context-engine/agent-memory/) for the service's full capabilities. This bridge currently exposes semantic search through `memory_search`; keyword and hybrid search are not exposed as separate bridge tools. When automatic summarization is enabled, session retrieval can return a summary and recent events rather than every original turn; use `includeSummarisedEvents` when requesting the underlying session history.
 
 Local capture derives the project namespace from the project folder name and a hash of its path, unless overridden in configuration. It does not automatically store a ChatGPT Project name or ID. The current `memory_search` tool supports semantic queries scoped by owner and namespace, but does not expose date-range filters or automatically reconstruct matching episodes. Capture timestamps and source session/turn identifiers are stored inside each captured record's JSON text; structured time filtering and grouping related prompts and responses into episodes would require additional implementation.
+
+### Configure automatic summarization
+
+Run this from the project directory to enable automatic session summarization on the managed Redis Agent Memory store:
+
+```sh
+npm run memory:configure-summarization -- --summarize-after 20 --keep-most-recent 10
+```
+
+Configure `AGENT_MEMORY_STORE_ID`, `REDIS_CLOUD_API_KEY` (Cloud account API key), and `REDIS_CLOUD_API_SECRET_KEY` (Cloud user API key) in your local environment or untracked `.env`. These management credentials are separate from `AGENT_MEMORY_API_KEY`, the bearer token used for ordinary memory operations. The command reads the project's `.env` and existing shared memory settings; management credentials are not copied by `capture:share-settings`.
+
+Both counts are configurable. CLI flags override `AGENT_MEMORY_SUMMARIZE_AFTER` and `AGENT_MEMORY_KEEP_MOST_RECENT`; when omitted, they default to **20** and **10**. Values must be integers from 0 to 10000, and “Summarize after” must exceed “Keep most recent”. Changing the environment variables alone does not apply the settings: run the setup command explicitly. Normal capture and MCP startup do not change service configuration.
+
+This changes the **entire store**, including sessions written by other projects and clients using that store. The command updates only summarization, polls the asynchronous task for up to two minutes, and reads the store back to verify the saved counts. If it times out, check the task or store in Redis Cloud before retrying; the accepted update may still complete. Account feature availability and API permissions can prevent updates.
+
+See the [Redis Cloud Iris management API](https://api.redislabs.com/v1/swagger-ui/index.html?urls.primaryName=Iris#/Agent%20Memory%20-%20Stores/updateMemoryStore) for the store update contract. For usage, run `npm run memory:configure-summarization -- --help`.
 
 ## Use cases
 
