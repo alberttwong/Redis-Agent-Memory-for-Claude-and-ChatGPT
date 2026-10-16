@@ -1,4 +1,6 @@
-# Redis Agent Memory MCP bridge
+# Redis Agent Memory for Claude and ChatGPT
+
+Persistent project memory across chats, coding sessions, and agent handoffs.
 
 Give Claude Desktop and ChatGPT Desktop a durable project memory backed by Redis Agent Memory. The project keeps useful context available across new chats and agent handoffs, without making people repeat the project history every time.
 
