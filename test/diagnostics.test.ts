@@ -75,7 +75,7 @@ test("recall diagnostics expose counts, safe IDs, both truncations, empty and un
   ], ["secret"], value => observations.push(value));
   assert(context.length <= 5400);
   assert.deepEqual(observations[0], {outcome: "returned", attempted: true, count: 2, ids: ["memory-1"], context: "prepared", queryTruncated: true, contextTruncated: true});
-  await recallPrompt(config, identity, "hello", async () => [], [], value => observations.push(value));
+  await recallPrompt(config, identity, "find prior retry decisions", async () => [], [], value => observations.push(value));
   await assert.rejects(recallPrompt(config, identity, "private prompt", async () => {throw new Error("secret");}, [], value => observations.push(value)));
   assert.equal(observations[1].outcome, "empty");
   assert.equal(observations[2].outcome, "unavailable");

@@ -19,7 +19,7 @@ globalThis.fetch = async (url, options) => {
     appendFileSync(process.env.TEST_CALLS, JSON.stringify(request.params) + '\\n');
     const search = request.params.name === 'search_long_term_memory';
     const fail = search ? process.env.TEST_MODE === 'search-error' : process.env.TEST_MODE === 'write-error';
-    const data = search ? { memories: process.env.TEST_MODE === 'empty' ? [] : [{ text: 'Checkout retries allow seven attempts' }] }
+    const data = search ? { memories: process.env.TEST_MODE === 'empty' ? [] : process.env.TEST_MODE === 'oversized' ? Array.from({ length: 20 }, (_, i) => ({ text: 'Decision ' + i + ': retries test-key mem1_sample ' + 'oversized '.repeat(10000) })) : [{ text: 'Checkout retries allow seven attempts' }] }
       : { created: request.params.arguments.memories.map(memory => memory.id) };
     result = fail ? { isError: true, content: [{ type: 'text', text: 'Simulated failure' }] }
       : { content: [{ type: 'text', text: JSON.stringify(data) }] };
@@ -43,11 +43,11 @@ globalThis.fetch = async (url, options) => {
     const configPath = join(project, ".memory-capture.json");
     const hooks = JSON.parse(await readFile(join(installed, "hooks/hooks.json"), "utf8"));
     const command = hooks.hooks.UserPromptSubmit[0].hooks[0].command;
-    async function run(mode, settings = {}) {
+    async function run(mode, settings = {}, event = "UserPromptSubmit", prompt = "Checkout retries test-key mem1_sample") {
       await writeFile(configPath, JSON.stringify({ ...config, ...settings }));
       await writeFile(calls, "");
       const result = spawnSync(command, { shell: true, env: { ...env, TEST_MODE: mode }, cwd: project, encoding: "utf8",
-        input: JSON.stringify({ hook_event_name: "UserPromptSubmit", session_id: "session", prompt: "Checkout retries test-key mem1_sample" }) });
+        input: JSON.stringify({ hook_event_name: event, session_id: "session", prompt }) });
       assert.equal(result.status, 0, result.stderr);
       return { output: JSON.parse(result.stdout), calls: (await readFile(calls, "utf8")).trim().split("\n").filter(Boolean).map(line => JSON.parse(line)) };
     }
@@ -57,12 +57,23 @@ globalThis.fetch = async (url, options) => {
     assert.deepEqual(success.calls[0].arguments, { text: "Checkout retries [REDACTED] [REDACTED]", owner_id: "test-person", namespace: "test-project", limit: 5, similarity_threshold: 0.7 });
     assert.equal(success.calls[1].name, "create_long_term_memories");
     const empty = await run("empty");
-    assert.ok(!empty.output.hookSpecificOutput.additionalContext.includes("Relevant Redis memories"));
+    assert.ok(!(empty.output.hookSpecificOutput?.additionalContext ?? "").includes("Relevant Redis memories"));
     const failedSearch = await run("search-error");
     assert.ok(failedSearch.calls.some(call => call.name === "create_long_term_memories"), "A recall error must not prevent saving");
-    assert.ok(!failedSearch.output.hookSpecificOutput.additionalContext.includes("seven attempts"));
+    assert.ok(!(failedSearch.output.hookSpecificOutput?.additionalContext ?? "").includes("seven attempts"));
     const failedWrite = await run("write-error");
     assert.ok(failedWrite.output.hookSpecificOutput.additionalContext.includes("seven attempts"), "A write error must not discard retrieved context");
+    const greeting = await run("success", {}, "UserPromptSubmit", "hello");
+    assert.ok(greeting.calls.every(call => call.name !== "search_long_term_memory"));
+    assert.deepEqual(greeting.output, {});
+    for (const event of ["SessionStart", "UserPromptSubmit"]) {
+      const bounded = await run("oversized", { startupContextChars: 1024, promptContextChars: 1024 }, event);
+      const context = bounded.output.hookSpecificOutput.additionalContext;
+      assert(context.length <= 1024);
+      assert(!context.includes("test-key") && !context.includes("mem1_sample"));
+      assert.equal(JSON.parse(context).contextBudget.truncated, true);
+      assert(context.includes("Decision 0"));
+    }
     const disabled = await run("success", { promptRecall: false });
     assert.ok(disabled.calls.every(call => call.name !== "search_long_term_memory"));
     assert.ok(disabled.calls.some(call => call.name === "create_long_term_memories"), "Turning off retrieval must preserve saving");

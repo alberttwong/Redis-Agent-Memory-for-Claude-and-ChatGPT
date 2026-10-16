@@ -8,6 +8,15 @@
 - After material progress and before a handoff, call `checkpoint_save`. Include the current goal, completed work, next steps, blockers, repository path, branch, commit, and changed files when known.
 - Treat the repository and Git state as the source of truth for code. Redis memory is context, not a replacement for the working tree.
 
+
+## Choosing tools and controlling context
+
+Use `memory_search` when a prior decision or saved fact could help, or when the task session ID is unknown. Use `resume_context` for “continue where we left off” with a known session ID; it already includes search, so do not repeat the same lookup. Verify recalled facts against current files. Skip retrieval for self-contained trivial questions and reuse context already available in this conversation.
+
+Use `memory_append` to save an important individual turn or decision as ordered history. Use `checkpoint_save` after material progress and before switching agents to replace the canonical compact handoff. Avoid copying the full transcript into a checkpoint or appending turns already captured by verified hooks. There is no separate save tool to select.
+
+Read responses have a serialized character budget. If `contextBudget.truncated` is true, narrow `memory_search` or increase `maxChars` (1024–100000). Use `memory_get_session` with `eventLimit` and `eventOffset` for older events; `eventPage.nextOffset` identifies the next page. See [recall budgets and evaluation](https://github.com/alberttwong/redis-agent-memory-mcp/blob/main/docs/recall-budgets.md).
+
 ## Memory privacy guardrails
 
 Never store passwords, API keys, access tokens, private keys, raw environment files, or sensitive personal information (PII), including contact details, government IDs, financial details, and medical information. Apply this rule to memory text, metadata, checkpoints, imports, and identifiers. Omit sensitive details or use placeholders; when unsure, leave the detail out. Automatic redaction is a fallback and cannot detect all sensitive information.

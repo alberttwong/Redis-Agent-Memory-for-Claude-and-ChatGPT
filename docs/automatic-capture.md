@@ -94,7 +94,7 @@ Capture does not read `AGENT_MEMORY_NAMESPACE_ID` or `AGENT_MEMORY_NAMESPACE` fo
 
 The handler uses the **native MCP `create_long_term_memories` tool with `memory_type: "message"`**. This is explicit transcript capture; it does not use Redis's ordered session-memory API or trigger that API's summarization/extraction path. Each captured chunk is embedded and subject to long-term-memory retention/cost. A native MCP session-append tool was not advertised by the tested deployment. The bridge's existing session tools remain available separately.
 
-Startup recall uses filter-only `search_long_term_memory`, scoped to owner, namespace, and the `auto-capture` topic, ordered by update time. It returns at most `recallLimit` records (default 6) and limits context to 18,000 characters. This gives recent context, not a complete reconstruction of every conversation or a semantic summary. Retrieved content is marked as historical data; the agent still needs to verify the repository state.
+Startup recall uses filter-only `search_long_term_memory`, scoped to owner, namespace, and the `auto-capture` topic, ordered by update time. It returns at most `recallLimit` records (default 6) and limits the complete serialized context to `startupContextChars` (default 18,000 characters). This gives recent context, not a complete reconstruction of every conversation or a semantic summary. Retrieved content is marked as historical data; the agent still needs to verify the repository state.
 
 ## Configure memory guardrails
 
@@ -192,3 +192,5 @@ The command merges all three Codex hooks, creates missing local configuration, a
 `ram-capture uninstall --project /absolute/path/to/target` removes only handlers identified as Redis Agent Memory capture hooks. It preserves `.env`, `.memory-capture.json`, ignored queue data, and unrelated hook handlers so queued content cannot be deleted accidentally.
 
 This installation is project-scoped. It does not record unrelated projects or ordinary Claude Desktop chats. Turn it off by setting `enabled: false`; pending entries remain on disk. Automatic retries resume when capture is re-enabled; an explicit `flush` can deliver pending entries even while `enabled` is `false`. Imports also require their own `--write` flag and are not disabled by this setting.
+
+Both automatic recall paths support full serialized character budgets: `startupContextChars` defaults to 18000 and `promptContextChars` to 5400; both accept 1024–100000. Notices and JSON escaping count toward the cap. Greeting-only prompts skip search, empty results inject no per-turn context, and exact duplicate matches are removed. See [recall budgets and evaluation](recall-budgets.md) for limits, detail recovery, and prompt-cache observations.

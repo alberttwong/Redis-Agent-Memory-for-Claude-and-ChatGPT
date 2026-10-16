@@ -42,3 +42,32 @@ test("an MCP client can discover and call the bridge tools", async () => {
   await client.close();
   await server.close();
 });
+
+test("MCP read responses enforce configured and per-call budgets and page older events", async () => {
+  const gateway = {
+    contextChars: () => 2048,
+    search: async () => ({ items: [{ id: "best", text: "decision: " + "x".repeat(40000) }] }),
+    getSession: async () => ({ sessionId: "task", events: Array.from({ length: 50 }, (_, i) => ({ eventId: `event-${i}`, content: [{ text: "hello" }] })) }),
+    resumeContext: async () => ({ checkpoint: { id: "checkpoint", text: "Continue retries. " + "x".repeat(40000) }, recalled: { items: [] }, session: { events: [] } }),
+  } as unknown as MemoryGateway;
+  const server = createServer(gateway);
+  const client = new Client({ name: "budget-test", version: "1" });
+  const [a, b] = InMemoryTransport.createLinkedPair();
+  await Promise.all([server.connect(b), client.connect(a)]);
+  try {
+    for (const name of ["memory_search", "resume_context"]) {
+      for (const maxChars of [undefined, 1024, 4000]) {
+        const response = await client.callTool({ name, arguments: { query: "retry decisions", sessionId: "task", ...(maxChars ? { maxChars } : {}) } });
+        assert(!response.isError);
+        assert.equal(JSON.stringify(response.structuredContent), (response.content as any[])[0].text);
+        assert((response.content as any[])[0].text.length <= (maxChars ?? 2048));
+        assert.equal(((response.structuredContent as any)?.contextBudget as any).truncated, true);
+      }
+    }
+    const response = await client.callTool({ name: "memory_get_session", arguments: { sessionId: "task", eventOffset: 20, eventLimit: 10 } });
+    assert.deepEqual(((response.structuredContent as any)?.events as any[]).map(e => e.eventId), Array.from({ length: 10 }, (_, i) => `event-${20 + i}`));
+    assert.equal(((response.structuredContent as any)?.eventPage as any).nextOffset, 30);
+    const invalid = await client.callTool({ name: "memory_search", arguments: { query: "retry", maxChars: 100001 } });
+    assert.equal(invalid.isError, true);
+  } finally { await client.close(); await server.close(); }
+});

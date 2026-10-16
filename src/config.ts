@@ -2,6 +2,7 @@ import { loadProjectGuardrails, type Guardrails } from "./privacy.js";
 import { defaultOwnerId } from "./identity.js";
 
 export type AppConfig = {
+  contextChars?: number;
   guardrails?: Guardrails;
   baseUrl: string;
   storeId: string;
@@ -27,6 +28,7 @@ function optional(env: NodeJS.ProcessEnv, name: string): string | undefined {
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   return {
+    contextChars: contextChars(env.AGENT_MEMORY_CONTEXT_CHARS),
     guardrails: loadProjectGuardrails(env.MEMORY_CAPTURE_PROJECT_ROOT ?? env.CLAUDE_PROJECT_DIR ?? process.cwd()),
     baseUrl: required(env, "AGENT_MEMORY_BASE_URL").replace(/\/+$/, ""),
     storeId: required(env, "AGENT_MEMORY_STORE_ID"),
@@ -36,4 +38,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     legacyNamespace: optional(env, "AGENT_MEMORY_NAMESPACE"),
     agentId: optional(env, "AGENT_MEMORY_AGENT_ID") ?? "shared-agent",
   };
+}
+
+function contextChars(value?: string): number {
+  const chars = value === undefined ? 12000 : Number(value);
+  if (!Number.isInteger(chars) || chars < 1024 || chars > 100000) throw new Error("AGENT_MEMORY_CONTEXT_CHARS must be an integer from 1024 to 100000");
+  return chars;
 }
