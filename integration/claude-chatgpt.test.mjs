@@ -144,6 +144,7 @@ test("Claude MCPB memory is retrieved by the ChatGPT Desktop plugin through live
     assert.equal(checkpoint.summary, summary);
     assert.deepEqual(checkpoint.nextSteps, [nextStep]);
     checkSession(context.session);
-    assert.ok(context.recalled.items.some((item) => item.id === checkpointId));
+    // resume_context returns the canonical checkpoint separately and excludes duplicates.
+    assert.ok(!context.recalled.items.some((item) => item.id === checkpointId), "Checkpoint duplicated in recalled context");
   });
 });
