@@ -7,6 +7,8 @@ import { defaultOwnerId } from "./identity.js";
 import { projectIdentity } from "./project-identity.js";
 export { projectNamespace } from "./project-identity.js";
 import * as z from "zod/v4";
+import { observation, observationAllowed, observationConfigSchema, type HookInput, type ObservationConfig } from "./hook-observations.js";
+export type { HookInput } from "./hook-observations.js";
 
 const identifier = z.string().regex(/^[A-Za-z0-9-]{1,64}$/);
 export const captureConfigSchema = z.object({
@@ -16,6 +18,7 @@ export const captureConfigSchema = z.object({
   legacyNamespaces: z.array(identifier).max(20).default([]),
   sessionId: identifier.optional(),
   enabled: z.boolean().default(true),
+  observations: observationConfigSchema,
   startupContextChars: z.number().int().min(1024).max(100000).default(18000),
   promptContextChars: z.number().int().min(1024).max(100000).default(5400),
   recallLimit: z.number().int().min(0).max(20).default(6),
@@ -24,14 +27,6 @@ export const captureConfigSchema = z.object({
   promptRecallThreshold: z.number().min(0).max(1).default(0.7),
 });
 export type CaptureConfig = z.infer<typeof captureConfigSchema>;
-export type HookInput = {
-  hook_event_name: string;
-  session_id: string;
-  cwd?: string;
-  turn_id?: string;
-  prompt?: string;
-  last_assistant_message?: string | null;
-};
 export type CapturedMemory = {
   id: string;
   text: string;
@@ -71,27 +66,45 @@ export function makeEntry(
 ): QueueEntry | null {
   if (!config.enabled) return null;
   const role = input.hook_event_name === "UserPromptSubmit" ? "USER"
-    : input.hook_event_name === "Stop" ? "ASSISTANT" : undefined;
+    : input.hook_event_name === "Stop" ? "ASSISTANT" : "OBSERVATION";
+  const observed = role === "OBSERVATION" ? observation(input, config.observations, secrets, config.guardrails ?? {}) : undefined;
   let content = role === "USER" ? input.prompt : role === "ASSISTANT" ? input.last_assistant_message : undefined;
-  if (!content || !role || !roleAllowed(role, config.guardrails)) return null;
-  content = redactCaptureText(content, secrets, config.guardrails);
+  if ((!content && !observed) || !roleAllowed(role, config.guardrails)) return null;
+  if (role !== "OBSERVATION" && config.observations.excludedEvents.includes(input.hook_event_name as "Stop")) return null;
+  content = observed ? JSON.stringify(observed) : redactCaptureText(content!, secrets, config.guardrails);
   const resolved = scope(config, root, source, input);
+  if (secrets.filter(Boolean).some(secret => [resolved.owner, resolved.namespace, resolved.session, source].some(value => value.includes(secret)))) {
+    throw new Error("Capture routing contains a configured credential");
+  }
   // Codex provides a turn ID. Claude events without one get a fresh identity so
   // submitting the same prompt twice still captures two separate turns.
-  const eventIdentity = input.turn_id ?? randomUUID();
+  const eventIdentity = input.event_id ?? (observed ? input.tool_use_id
+    ?? (input.agent_id && /^Subagent/.test(input.hook_event_name) ? `${input.agent_id}:${input.turn_id ?? ""}` : undefined)
+    ?? (input.task_id && input.hook_event_name === "TaskCompleted" ? `${input.task_id}:${input.turn_id ?? ""}` : undefined)
+    ?? (input.turn_id ? `${input.turn_id}:${digest(content)}` : undefined) : input.turn_id) ?? randomUUID();
+  const timestamp = input.timestamp && !Number.isNaN(Date.parse(input.timestamp)) ? new Date(input.timestamp).toISOString() : now;
   // JSON can expand control characters to six bytes; leave room for the envelope.
   const chunks = content.match(/[\s\S]{1,6000}/g) ?? [];
   return { version: 1, memories: chunks.map((text, index) => ({
-    id: `turn-${digest(JSON.stringify([{ owner: resolved.owner, namespace: resolved.namespace, session: resolved.session }, source, eventIdentity, role, index]))}`,
-    text: JSON.stringify(sanitizeMemory({ role, source, sourceSessionId: input.session_id,
-      repoPath: input.cwd ?? root, turnId: input.turn_id, capturedAt: now, part: index + 1, parts: chunks.length, content: text }, secrets, config.guardrails)),
+    id: `turn-${digest(JSON.stringify([{ owner: resolved.owner, namespace: resolved.namespace, session: resolved.session }, source, eventIdentity, role, ...(observed ? [input.hook_event_name] : []), index]))}`,
+    text: JSON.stringify(sanitizeMemory({ role, source, sourceSessionId: redactCaptureText(input.session_id, secrets, config.guardrails).slice(0, 512),
+      repoPath: redactCaptureText(input.cwd ?? root, secrets, config.guardrails).slice(0, 512),
+      turnId: input.turn_id ? redactCaptureText(input.turn_id, secrets, config.guardrails).slice(0, 512) : undefined, capturedAt: timestamp,
+      eventType: input.hook_event_name, eventId: digest(eventIdentity),
+      ...(observed ? { toolName: observed.toolName, toolCallId: observed.toolCallId, agentId: observed.agentId, taskId: observed.taskId } : {}),
+      part: index + 1, parts: chunks.length, content: text }, secrets, config.guardrails)),
     memory_type: "message", owner_id: resolved.owner, namespace: resolved.namespace,
-    session_id: resolved.session, topics: ["auto-capture", source, role.toLowerCase()],
+    session_id: resolved.session, topics: [observed ? "auto-observation" : "auto-capture", source, role.toLowerCase(), input.hook_event_name],
   })) };
 }
 
-function capturedRoleAllowed(text: string, guardrails: Guardrails): boolean {
-  try { return roleAllowed(JSON.parse(text).role, guardrails); }
+function capturedRoleAllowed(text: string, guardrails: Guardrails, policy?: ObservationConfig): boolean {
+  try {
+    const envelope = JSON.parse(text);
+    return roleAllowed(envelope.role, guardrails) && (!policy || (
+      !policy.excludedEvents.includes(envelope.eventType)
+      && (envelope.role !== "OBSERVATION" || observationAllowed(envelope.eventType, envelope.toolName, policy))));
+  }
   catch { return guardrails.capturePrompts !== false && guardrails.captureResponses !== false; }
 }
 
@@ -113,7 +126,7 @@ export async function pendingCount(directory: string): Promise<number> {
   })).filter(file => file.endsWith(".json")).length;
 }
 
-export async function flush(directory: string, transport: CaptureTransport, secrets: string[] = [], guardrails: Guardrails = {}): Promise<{ sent: number; pending: number; busy?: boolean }> {
+export async function flush(directory: string, transport: CaptureTransport, secrets: string[] = [], guardrails: Guardrails = {}, policy?: ObservationConfig): Promise<{ sent: number; pending: number; busy?: boolean }> {
   await mkdir(directory, { recursive: true, mode: 0o700 });
   const lockPath = join(directory, ".flush-lock");
   let lock;
@@ -136,19 +149,38 @@ export async function flush(directory: string, transport: CaptureTransport, secr
   }
   let sent = 0;
   try {
+    const receipts = join(directory, ".receipts");
+    await mkdir(receipts, { recursive: true, mode: 0o700 });
     for (const name of (await readdir(directory)).filter(file => file.endsWith(".json")).sort()) {
       const path = join(directory, name);
       const entry = JSON.parse(await readFile(path, "utf8")) as QueueEntry;
       if (entry.version !== 1 || !Array.isArray(entry.memories)) throw new Error("Invalid capture queue entry");
       for (let start = 0; start < entry.memories.length; start += 100) {
-        const batch = entry.memories.slice(start, start + 100).filter(memory => capturedRoleAllowed(memory.text, guardrails)).map(memory => ({ ...memory, text: sanitizeCapturedText(memory.text, secrets, guardrails) }));
+        const candidates = entry.memories.slice(start, start + 100).filter(memory => capturedRoleAllowed(memory.text, guardrails, policy));
+        const batch: CapturedMemory[] = [];
+        for (const memory of candidates) {
+          const acknowledged = await readFile(join(receipts, digest(memory.id)), "utf8").catch((error: NodeJS.ErrnoException) => {
+            if (error.code === "ENOENT") return "";
+            throw error;
+          });
+          if (!acknowledged) batch.push({ ...memory, text: sanitizeCapturedText(memory.text, secrets, guardrails) });
+        }
         if (!batch.length) continue;
         const response = await transport.create(batch);
+        // Persist accepted IDs even when another record in this batch failed.
+        // A lost response still replays the same ID to the service's idempotent create.
+        const accepted = batch.filter(memory => response.created.includes(memory.id));
+        for (const memory of accepted) {
+          const receipt = join(receipts, digest(memory.id));
+          const temporary = `${receipt}.${randomUUID()}.tmp`;
+          await writeFile(temporary, "acknowledged", { mode: 0o600, flag: "wx" });
+          await rename(temporary, receipt);
+        }
+        sent += accepted.length;
+        await recordBatch(directory, "delivery", accepted);
         if (response.errors?.length || batch.some(memory => !response.created.includes(memory.id))) {
           throw new Error("Capture write was not fully acknowledged; retained for retry");
         }
-        sent += batch.length;
-        await recordBatch(directory, "delivery", batch);
       }
       await unlink(path);
     }
@@ -162,7 +194,7 @@ export async function flush(directory: string, transport: CaptureTransport, secr
 async function recordBatch(directory: string, kind: "capture" | "delivery", memories: CapturedMemory[]) {
   const groups = new Map<string, { owner: string; namespace: string; source: string; count: number }>();
   for (const memory of memories) {
-    const identity = { owner: memory.owner_id, namespace: memory.namespace, source: memory.topics[0] === "auto-capture" ? memory.topics[1] ?? "unknown" : memory.topics[0] ?? "unknown" };
+    const identity = { owner: memory.owner_id, namespace: memory.namespace, source: ["auto-capture", "auto-observation"].includes(memory.topics[0]) ? memory.topics[1] ?? "unknown" : memory.topics[0] ?? "unknown" };
     const key = JSON.stringify(identity);
     const group = groups.get(key);
     if (group) group.count++;

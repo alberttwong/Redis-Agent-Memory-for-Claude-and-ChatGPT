@@ -3,6 +3,7 @@
   "hooks": {
     "SessionStart": [
       {
+        "matcher": "*",
         "hooks": [
           {
             "type": "command",
@@ -29,6 +30,48 @@
         ]
       }
     ],
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${PLUGIN_ROOT}/server/capture-cli.js\" hook codex",
+            "commandWindows": "node \"${PLUGIN_ROOT}/server/capture-cli.js\" hook codex",
+            "timeout": 30,
+            "statusMessage": "Redis Agent Memory capture"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${PLUGIN_ROOT}/server/capture-cli.js\" hook codex",
+            "commandWindows": "node \"${PLUGIN_ROOT}/server/capture-cli.js\" hook codex",
+            "timeout": 30,
+            "statusMessage": "Redis Agent Memory capture"
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${PLUGIN_ROOT}/server/capture-cli.js\" hook codex",
+            "commandWindows": "node \"${PLUGIN_ROOT}/server/capture-cli.js\" hook codex",
+            "timeout": 30,
+            "statusMessage": "Redis Agent Memory capture"
+          }
+        ]
+      }
+    ],
     "Stop": [
       {
         "hooks": [
@@ -37,8 +80,7 @@
             "command": "node \"${PLUGIN_ROOT}/server/capture-cli.js\" hook codex",
             "commandWindows": "node \"${PLUGIN_ROOT}/server/capture-cli.js\" hook codex",
             "timeout": 30,
-            "statusMessage": "Redis Agent Memory capture",
-            "additionalContextLimit": 6000
+            "statusMessage": "Redis Agent Memory capture"
           }
         ]
       }

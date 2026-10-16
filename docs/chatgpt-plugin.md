@@ -6,7 +6,7 @@ The repository ships two OpenAI plugin profiles to separate local automatic savi
 
 ## Local desktop plugin
 
-The local profile bundles the stdio MCP server, project setup skill, and lifecycle hooks. It supports automatic saving and retry in configured projects running as local ChatGPT/Codex desktop chats.
+The local profile bundles the stdio MCP server, project setup skill, and six lifecycle hooks (`SessionStart`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `PreCompact`, `Stop`). Tool and compaction events capture bounded observations; they do not generate checkpoints or inject compaction context. See [expanded coverage, controls, and verification limits](automatic-capture.md#expanded-lifecycle-observations). It supports automatic saving and retry in configured projects running as local ChatGPT/Codex desktop chats.
 
 For installation, download `redis-agent-memory-chatgpt-desktop-<version>.zip` from the [latest release](https://github.com/alberttwong/redis-agent-memory-mcp/releases/latest) and follow the [ChatGPT Desktop quickstart](quickstart-chatgpt-desktop.md). The desktop ZIP includes a local marketplace at `.agents/plugins/marketplace.json` and the bundled plugin under `plugins/redis-agent-memory/`. The plugin contains the server and capture CLI with their JavaScript dependencies bundled. Node.js 20.12 or later is required at runtime; npm and compilation are not required for release installation.
 

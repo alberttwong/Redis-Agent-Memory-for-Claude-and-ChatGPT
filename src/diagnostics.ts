@@ -3,6 +3,7 @@ import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import * as z from "zod/v4";
 import { redactSensitiveText } from "./privacy.js";
+import { claudeCaptureEvents, codexCaptureEvents } from "./hook-observations.js";
 
 const recallSchema = z.object({
   outcome: z.enum(["disabled", "empty", "returned", "unavailable"]),
@@ -13,7 +14,7 @@ const recallSchema = z.object({
 export type RecallDiagnostic = z.infer<typeof recallSchema>;
 const recordSchema = z.object({
   at: z.string().datetime(), owner: z.string(), namespace: z.string(), source: z.string(),
-  kind: z.enum(["capture", "delivery", "prompt-recall", "startup-recall"]),
+  kind: z.enum(["capture", "delivery", "prompt-recall", "startup-recall", ...claudeCaptureEvents]),
   count: z.number().int().nonnegative().optional(), recall: recallSchema.optional(),
 });
 type Record = z.infer<typeof recordSchema>;
@@ -48,6 +49,8 @@ export async function readDiagnostics(directory: string, scope: DiagnosticScope)
   };
   return { scope, lastCapture: await read("capture"), lastDelivery: await read("delivery"),
     promptRecall: await read("prompt-recall"), startupRecall: await read("startup-recall"),
+    hookDispatch: Object.fromEntries(await Promise.all((scope.source === "claude" ? claudeCaptureEvents : codexCaptureEvents)
+      .map(async event => [event, await read(event)]))),
     modelUse: "unknown", injectionEvidence: "emitted-to-host means hook output only; host acceptance and model use are not observable here" };
 }
 export function emptyRecall(outcome: RecallDiagnostic["outcome"], attempted = false): RecallDiagnostic {

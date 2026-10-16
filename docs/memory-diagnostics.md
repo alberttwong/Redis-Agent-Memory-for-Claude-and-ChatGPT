@@ -63,3 +63,7 @@ For a deterministic rehearsal without credentials or real writes, `npm test` inc
 | Recall disabled | Review `promptRecall`, `promptRecallLimit`, and startup `recallLimit`. Per-prompt and startup recall are separate; zero limits suppress search |
 | Results returned, context none/prepared | No usable text fit or hook output was not emitted. Inspect truncation and host hook logs; retry with shorter memories and check the supported environment |
 | Context emitted, answer omits memory | Inspect host context acceptance where available. Prompt relevance, context limits, and model behavior can affect use. Do not infer successful model consumption from a write or returned result |
+
+## Expanded lifecycle dispatch
+
+`diagnostics.hookDispatch` reports the last observed invocation for each registered event, separately from `lastCapture` and `lastDelivery`. An observed hook with no acknowledged delivery suggests a queue/credential/network issue. Unknown dispatch is not proof of an unsupported host: check the event in `/hooks`, trust, project selection, policy, and host version. A zero count means that invocation queued no records (for example, a memory tool was excluded). Synthetic handler tests also create these diagnostics; only a real host-triggered invocation establishes host dispatch. Test actual compaction separately from tool activity. See [expanded lifecycle verification](automatic-capture.md#verification-and-host-support).

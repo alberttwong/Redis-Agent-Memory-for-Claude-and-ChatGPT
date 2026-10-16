@@ -1,9 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { chmod, mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { codexCaptureEvents } from "./hook-observations.js";
 
 export const captureHookStatus = "Redis Agent Memory capture";
-export const captureEvents = ["SessionStart", "UserPromptSubmit", "Stop"] as const;
+export const captureEvents = codexCaptureEvents;
 
 type JsonObject = Record<string, unknown>;
 
@@ -15,14 +16,14 @@ function windowsQuote(value: string): string {
   return `"${value.replaceAll('"', '\\"')}"`;
 }
 
-export function captureHookHandler(nodePath: string, cliPath: string): JsonObject {
+export function captureHookHandler(nodePath: string, cliPath: string, event: string = "SessionStart"): JsonObject {
   return {
     type: "command",
     command: `${posixQuote(nodePath)} ${posixQuote(cliPath)} hook codex`,
     commandWindows: `${windowsQuote(nodePath)} ${windowsQuote(cliPath)} hook codex`,
     timeout: 30,
     statusMessage: captureHookStatus,
-    additionalContextLimit: 6000,
+    ...(["SessionStart", "UserPromptSubmit"].includes(event) ? { additionalContextLimit: 6000 } : {}),
   };
 }
 
@@ -62,7 +63,7 @@ export function mergeCaptureHooks(
   for (const event of captureEvents) {
     hooks[event] = [
       ...withoutCaptureHandlers(hooks[event]),
-      { hooks: [captureHookHandler(nodePath, cliPath)] },
+      { hooks: [captureHookHandler(nodePath, cliPath, event)] },
     ];
   }
   return { ...document, hooks };

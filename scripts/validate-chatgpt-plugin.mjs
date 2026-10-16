@@ -62,7 +62,7 @@ export async function validateChatGptPluginSources() {
     throw new Error("Bundled ESM servers require a plugin-root package.json with type=module");
   }
   const hooks = JSON.parse(await readFile(join(localRoot, "hooks", "hooks.json"), "utf8"));
-  for (const event of ["SessionStart", "UserPromptSubmit", "Stop"]) {
+  for (const event of ["SessionStart", "UserPromptSubmit", "PreToolUse", "PostToolUse", "PreCompact", "Stop"]) {
     const handler = hooks.hooks?.[event]?.[0]?.hooks?.[0];
     if (handler?.type !== "command" || !handler.command?.includes("${PLUGIN_ROOT}/server/capture-cli.js")) {
       throw new Error(`Missing packaged capture handler for ${event}`);
