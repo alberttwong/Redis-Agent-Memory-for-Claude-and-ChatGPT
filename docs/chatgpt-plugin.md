@@ -72,6 +72,6 @@ This repository keeps a separate hook-free remote profile whose writes are model
 npm run plugin:build:remote -- https://memory.example.com/mcp
 ```
 
-The result is `build/redis-agent-memory-chatgpt-remote-0.1.6.zip`. It contains the remote URL, plugin metadata, and memory workflow skill, but no local server, hook, or credentials. Configure supported authentication and complete domain verification in the OpenAI submission portal before publishing.
+The result is `build/redis-agent-memory-chatgpt-remote-0.1.7.zip`. It contains the remote URL, plugin metadata, and memory workflow skill, but no local server, hook, or credentials. Configure supported authentication and complete domain verification in the OpenAI submission portal before publishing.
 
 Use the local profile for supported automatic saving. The remote profile provides explicit tools through a hosted endpoint; it cannot passively capture every conversation turn. The endpoint must expose this bridge's tools (`memory_append`, `checkpoint_save`, and `resume_context`). Pointing it at the native Redis MCP endpoint does not supply those tool names. Hosting an authenticated HTTP bridge is a separate deployment task; this repository's bridge starts over stdio.
