@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "redis-agent-memory",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Recall project context and save agent handoffs with a hosted Redis Agent Memory MCP server.",
   "author": {
     "name": "Albert Wong",

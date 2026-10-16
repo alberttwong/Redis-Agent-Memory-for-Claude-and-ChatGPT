@@ -57,7 +57,7 @@ function safely<T extends Record<string, unknown>>(
 
 export function createServer(gateway: MemoryGateway, guardrails: Guardrails = {}): McpServer {
   const server = new McpServer(
-    { name: "redis-agent-memory", version: "0.1.5" },
+    { name: "redis-agent-memory", version: "0.1.6" },
     {
       instructions:
         "Best-effort memory workflow: this server cannot observe messages unless you call its tools. "
