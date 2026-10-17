@@ -8,7 +8,7 @@ import { readDiagnostics, type RecallDiagnostic } from "../src/diagnostics.js";
 import { checkMarker, queueCheck, verifyCheck } from "../src/memory-check.js";
 import { recallPrompt, type PromptSearch } from "../src/prompt-recall.js";
 
-const config = captureConfigSchema.parse({ownerId: "person", namespace: "shared"});
+const config = captureConfigSchema.parse({sessionCapture: false, ownerId: "person", namespace: "shared"});
 const identity = {owner: "person", namespace: "shared", source: "codex"};
 test("marker check survives outage, retries the same ID, and recalls across clients only in the same scope", async () => {
   const root = await mkdtemp(join(tmpdir(), "ram-check-"));

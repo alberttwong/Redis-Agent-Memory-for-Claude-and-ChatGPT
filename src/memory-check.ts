@@ -23,7 +23,7 @@ export async function verifyCheck(config: CaptureConfig, resolved: { owner: stri
   queue: string, storage: CaptureTransport, search: PromptSearch, secrets: string[], verifyOnly = false) {
   let delivery: "acknowledged" | "pending" | "not-tested" = verifyOnly ? "not-tested" : "pending";
   if (!verifyOnly) {
-    try { const result = await flush(queue, storage, secrets, config.guardrails); if (!result.busy && result.pending === 0) delivery = "acknowledged"; }
+    try { const result = await flush(queue, storage, secrets, config.guardrails, config.observations, config); if (!result.busy && result.pending === 0) delivery = "acknowledged"; }
     catch { /* Retain marker and other pending writes for normal retries. */ }
   }
   let recall = emptyRecall("unavailable");

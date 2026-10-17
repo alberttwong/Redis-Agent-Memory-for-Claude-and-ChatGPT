@@ -170,7 +170,7 @@ test("imports and queueing share the configured category and context policy", as
     const queue = join(directory, "queue");
     await enqueueImport(queue, plan.records, [], guardrails);
     const { readdir } = await import("node:fs/promises");
-    const [queued] = await readdir(queue);
+    const [queued] = (await readdir(queue)).filter(name => name.endsWith(".json"));
     assert((await readFile(join(queue, queued), "utf8")).includes("person@example.com"));
   } finally { await rm(directory, {recursive: true, force: true}); }
 });

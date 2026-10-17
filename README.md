@@ -46,15 +46,16 @@ To reuse Redis credentials across worktrees and separate checkouts, configure [s
 
 ## How saved context reaches the next chat
 
-There are three distinct storage paths:
+The storage paths are:
 
 | Path | Stored data | How to retrieve it |
 | --- | --- | --- |
-| Capture hooks and imports | Long-term `message` records | Native `search_long_term_memory` or bridge `memory_search`, with matching scope |
+| Capture hooks | Ordered session events plus compatibility long-term `message` records | `memory_get_session` using the derived session ID; native or bridge search with matching scope |
+| Imports | Long-term `message` records | Native `search_long_term_memory` or bridge `memory_search`, with matching scope |
 | Bridge `memory_append` | Ordered session events | `memory_get_session` or the session portion of `resume_context` |
 | Bridge `checkpoint_save` | One durable checkpoint per owner, namespace, and task session | `resume_context` or semantic search |
 
-Capture and imports do not populate ordered session history or automatically create checkpoints. New local sessions recall a bounded selection of recent captured messages; each prompt can also retrieve relevant project memories. This is context for continuing work, not a full replay of the old chat. See [capture and retrieval controls](docs/automatic-capture.md) and [scope compatibility](docs/handoff-workflow.md#scope-compatibility).
+New capture automatically populates ordered session history; imports remain direct long-term writes. Automatic checkpoints remain separate work. [Session capture](docs/session-capture.md) documents extraction configuration, scope, migration, and uncertain-write recovery. New local sessions recall a bounded selection of recent captured messages; each prompt can also retrieve relevant project memories. This is context for continuing work, not a full replay of the old chat. See [capture and retrieval controls](docs/automatic-capture.md) and [scope compatibility](docs/handoff-workflow.md#scope-compatibility).
 
 ## Redis Agent Memory capabilities
 
@@ -189,7 +190,7 @@ The end-to-end test checks that progress saved through the Claude package can be
 - Bridge session reads use `sessionId` directly; owner and namespace are not additional read filters. Use a unique task session ID in a shared store and service-enforced access controls where needed.
 - By default, omit passwords, credentials, and sensitive personal information (PII) from memory, metadata, checkpoints, and identifiers. Project owners can [configure guardrails](docs/automatic-capture.md#configure-memory-guardrails); keep only the task context needed for future work. The configured Redis API key is always redacted.
 - The bridge, capture hooks, and importers apply the project guardrails before writes; capture also filters new local queue entries and rechecks queued text before upload. Pattern matching cannot detect every name, address, or sensitive context. Disable automatic capture for sensitive conversations. Native endpoints used outside this bridge do not run its filter. Existing stored records are not retroactively cleaned. Older queue files are checked against the current policy when retried.
-- Redis semantic exclusions guide automatic extraction; they do not guarantee exclusion, prevent sensitive session content from reaching the extraction model provider, or filter directly created long-term memories. This project's capture and imports create long-term `message` records directly, so they rely on the local privacy guardrails described above.
+- Redis semantic exclusions guide automatic extraction; they do not guarantee exclusion, prevent sensitive session content from reaching the extraction model provider, or filter directly created long-term memories. Compatibility capture and imports create long-term `message` records directly. New session capture can also feed configured extraction and its model provider; local privacy guardrails run before both paths.
 - The optional bridge exposes no delete tool. The recorded native endpoint exposes `delete_long_term_memories`; use it only for intended memory removals.
 
 ## Documentation map

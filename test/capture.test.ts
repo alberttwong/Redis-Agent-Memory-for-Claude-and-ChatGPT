@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { captureConfigSchema, enqueue, flush, makeEntry, pendingCount, scope, type CapturedMemory, type CaptureTransport } from "../src/capture.js";
 
-const config = captureConfigSchema.parse({ownerId: "test-user", namespace: "project"});
+const config = captureConfigSchema.parse({sessionCapture: false, ownerId: "test-user", namespace: "project"});
 const input = {hook_event_name: "UserPromptSubmit", session_id: "source-chat", turn_id: "turn-1", prompt: "Add backoff tests"};
 const client = (create: CaptureTransport["create"]): CaptureTransport => ({create, recall: async () => []});
 
@@ -23,7 +23,7 @@ test("same project uses separate owners, memory IDs, and safe session IDs", () =
 test("defaults need no hard-coded owner and explicit shared task identity is honored", () => {
   const defaults = captureConfigSchema.parse({});
   assert.match(scope(defaults, "/project", "codex", input).owner, /^user-[a-f0-9]{32}$/);
-  assert.equal(scope({...config, sessionId: "shared-task"}, "/project", "claude", input).session, "shared-task");
+  assert.equal(scope({...config, sessionId: "shared-task"}, "/project", "claude", input).session, scope({...config, sessionId: "shared-task"}, "/project", "codex", input).session);
 });
 
 test("captures assistant responses, skips absent messages and disabled capture", () => {

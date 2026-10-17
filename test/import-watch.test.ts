@@ -32,7 +32,7 @@ test("watcher imports both providers, redacts, and remembers queued files across
     assert.deepEqual(events.map(event => [event.provider, event.status, event.records]), [
       ["claude", "queued", 1], ["chatgpt", "queued", 1],
     ]);
-    const files = await readdir(options.queue);
+    const files = (await readdir(options.queue)).filter(name => name.endsWith(".json"));
     assert.equal(files.length, 2);
     for (const file of files) {
       const raw = await readFile(join(options.queue, file), "utf8");

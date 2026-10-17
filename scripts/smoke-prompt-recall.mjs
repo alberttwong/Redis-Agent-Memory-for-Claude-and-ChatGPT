@@ -39,7 +39,7 @@ globalThis.fetch = async (url, options) => {
       AGENT_MEMORY_SHARED_SETTINGS_FILE: join(directory, "no-shared-settings.json"),
       MEMORY_CAPTURE_PROJECT_ROOT: project,
       NODE_OPTIONS: '--import=' + pathToFileURL(mock).href, TEST_CALLS: calls };
-    const config = { enabled: true, ownerId: "test-person", namespace: "test-project" };
+    const config = { enabled: true, sessionCapture: false, ownerId: "test-person", namespace: "test-project" };
     const configPath = join(project, ".memory-capture.json");
     const hooks = JSON.parse(await readFile(join(installed, "hooks/hooks.json"), "utf8"));
     const command = hooks.hooks.UserPromptSubmit[0].hooks[0].command;
