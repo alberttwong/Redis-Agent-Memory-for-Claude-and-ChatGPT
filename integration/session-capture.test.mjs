@@ -7,6 +7,7 @@ import { join, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import test from "node:test";
 import { AgentMemory } from "@redis-iris/agent-memory";
+import { MemoryGateway } from "../dist/src/memory.js";
 import { captureConfigSchema, scope } from "../dist/src/capture.js";
 import { loadMemoryEnvironment } from "../dist/src/shared-settings.js";
 
@@ -58,6 +59,22 @@ test("packaged capture: scoped session delivery, compatibility, and extraction v
   assert.equal(new Set(session.events.map(event => event.metadata.captureId)).size, 4);
   const compatibility = await api.searchLongTermMemory({ filter: { ...filter, memoryType: { eq: "message" } }, filterOp: "all", limit: 20 }, options);
   assert.equal(compatibility.items.length, 4, "Compatibility transcripts must remain searchable");
+  const gateway = new MemoryGateway(api, { baseUrl: process.env.AGENT_MEMORY_BASE_URL, storeId: process.env.AGENT_MEMORY_STORE_ID,
+    apiKey: process.env.AGENT_MEMORY_API_KEY, ownerId: config.ownerId, legacyNamespace: config.namespace, agentId: "test" });
+  const resumed = await gateway.resumeContext(sessionId, "retry limit");
+  assert.equal(resumed.checkpointState, "automatic", "Packaged Stop must persist the current automatic checkpoint");
+  assert.match(resumed.checkpoint.text, /three checkout retry/);
+  assert.equal(resumed.session.events.length, 4);
+  assert(!resumed.recalled.items.some(item => item.topics?.includes("automatic-checkpoint")));
+  await writeFile(join(directory, ".memory-capture.json"), JSON.stringify({...config, recallLimit: 6}));
+  const startup = spawnSync(process.execPath, [resolve("plugins/redis-agent-memory/server/capture-cli.js"), "hook", "codex", "--project", directory], {
+    cwd: directory, encoding: "utf8", timeout: 30000, input: JSON.stringify({hook_event_name: "SessionStart", session_id: `fresh-${run}`}),
+    env: {...process.env, MEMORY_CAPTURE_OWNER_ID: config.ownerId},
+  });
+  assert.equal(startup.status, 0);
+  const startupPacket = JSON.parse(JSON.parse(startup.stdout).hookSpecificOutput.additionalContext);
+  assert.equal(startupPacket.checkpoint?.sessionId, sessionId, "Fresh packaged local chat must discover the prior session checkpoint");
+  console.log("Live automatic checkpoint saved across packaged clients and resumed through the shared bridge.");
   console.log("Live packaged capture: four ordered scoped turns and compatibility records verified.");
   await t.test("asynchronous extraction under the expected scope", { skip: process.env.RAM_CAPTURE_SKIP_EXTRACTION === "1" }, async () => {
     console.log("Polling asynchronous extraction for up to eight minutes.");
@@ -65,7 +82,7 @@ test("packaged capture: scoped session delivery, compatibility, and extraction v
     for (;;) {
       const result = await api.searchLongTermMemory({ text: "checkout retry limit three attempts exponential backoff",
         filter: { ...filter, memoryType: { in: ["semantic", "episodic"] } }, filterOp: "all", similarityThreshold: 0, limit: 20 }, options);
-      const extracted = result.items.find(item => /\b(?:three|3)\b/i.test(item.text) && /retr|attempt/i.test(item.text));
+      const extracted = result.items.find(item => !item.topics?.includes("automatic-checkpoint") && /\b(?:three|3)\b/i.test(item.text) && /retr|attempt/i.test(item.text));
       if (extracted) {
         assert.equal(extracted.ownerId, config.ownerId); assert.equal(extracted.namespace, config.namespace);
         console.log("Live extracted fact verified under the expected owner and project namespace.");

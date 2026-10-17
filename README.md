@@ -55,7 +55,7 @@ The storage paths are:
 | Bridge `memory_append` | Ordered session events | `memory_get_session` or the session portion of `resume_context` |
 | Bridge `checkpoint_save` | One durable checkpoint per owner, namespace, and task session | `resume_context` or semantic search |
 
-New capture automatically populates ordered session history; imports remain direct long-term writes. Automatic checkpoints remain separate work. [Session capture](docs/session-capture.md) documents extraction configuration, scope, migration, and uncertain-write recovery. New local sessions recall a bounded selection of recent captured messages; each prompt can also retrieve relevant project memories. This is context for continuing work, not a full replay of the old chat. See [capture and retrieval controls](docs/automatic-capture.md) and [scope compatibility](docs/handoff-workflow.md#scope-compatibility).
+New capture automatically populates ordered session history; imports remain direct long-term writes. Local capture also creates bounded [automatic evidence checkpoints](docs/automatic-checkpoints.md) at Stop and PreCompact boundaries. [Session capture](docs/session-capture.md) documents extraction configuration, scope, migration, and uncertain-write recovery. New local sessions recall a bounded selection of recent captured messages; each prompt can also retrieve relevant project memories. This is context for continuing work, not a full replay of the old chat. See [capture and retrieval controls](docs/automatic-capture.md) and [scope compatibility](docs/handoff-workflow.md#scope-compatibility).
 
 ## Redis Agent Memory capabilities
 

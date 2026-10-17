@@ -1,8 +1,11 @@
 import { loadProjectGuardrails, type Guardrails } from "./privacy.js";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { defaultOwnerId } from "./identity.js";
 
 export type AppConfig = {
   contextChars?: number;
+  automaticCheckpoints?: boolean;
   guardrails?: Guardrails;
   baseUrl: string;
   storeId: string;
@@ -27,7 +30,14 @@ function optional(env: NodeJS.ProcessEnv, name: string): string | undefined {
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
+  const root = env.MEMORY_CAPTURE_PROJECT_ROOT ?? env.CLAUDE_PROJECT_DIR ?? process.cwd();
+  let automaticCheckpoints = true;
+  try {
+    const policy = JSON.parse(readFileSync(join(root, ".memory-capture.json"), "utf8"));
+    automaticCheckpoints = policy.enabled !== false && policy.automaticCheckpoints !== false;
+  } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
   return {
+    automaticCheckpoints,
     contextChars: contextChars(env.AGENT_MEMORY_CONTEXT_CHARS),
     guardrails: loadProjectGuardrails(env.MEMORY_CAPTURE_PROJECT_ROOT ?? env.CLAUDE_PROJECT_DIR ?? process.cwd()),
     baseUrl: required(env, "AGENT_MEMORY_BASE_URL").replace(/\/+$/, ""),
