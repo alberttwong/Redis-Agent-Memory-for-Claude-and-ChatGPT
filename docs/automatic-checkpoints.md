@@ -1,0 +1,29 @@
+# Automatic evidence checkpoints
+
+Configured local projects enable `automaticCheckpoints` by default. `Stop` and `PreCompact` enqueue checkpoint generation after captured session events and compatibility messages are delivered. The generator reads retained ordered session history through the official TypeScript SDK, including summarized events. It works when the boundary payload has no final assistant response; it never opens a host transcript file. Missing or observation-only history produces an insufficient-evidence diagnostic.
+
+Generation is extractive and requires no additional model provider. The checkpoint quotes the latest user request and assistant report, labels the report unverified, and carries a bounded set of source event references. Completed work, validation, decisions, blockers and next steps are not inferred from a finished response. Structured semantic synthesis and decision supersession (#69) remain separate work; quotations can include historical or corrected statements and must be verified before acting. Session extraction, embeddings and service summarization may still use the store's configured providers.
+
+## Freshness and resume
+
+Automatic checkpoints use one logical canonical ID per owner, namespace and durable session, matching the bridge's checkpoint identity. Physical `auto-checkpoint-*` revisions are keyed by a watermark of retained session history and normalized privacy policy. Delayed generation cannot replace a newer physical revision. `resume_context` reads authoritative session history to resolve the current revision, exposes the canonical `id` and physical `revisionId`, and removes historical automatic revisions from semantic recall. `memory_search` can include these revisions explicitly with `includeHistory: true`.
+
+A fresh explicit checkpoint takes precedence. An explicit checkpoint older than the latest session event is stale. When no current saved automatic revision exists, resume may return an evidence packet labeled `derived-not-persisted`; this is not a successful save. Changes to retained history, service summaries or privacy settings can invalidate a previous automatic revision. The next boundary or queued retry regenerates it.
+
+Startup recall discovers a recent session from scoped compatibility conversation receipts, verifies its owner and namespace, and includes its current saved automatic checkpoint within the startup context budget. It does not merge different sessions or assume the most recent session is the user's intended task. The packet includes its session ID for explicit continuation. Set a deliberate shared `sessionId` alias in project capture settings for cross-client task continuity. If compatibility capture or startup recall is disabled, use the known session ID with `resume_context`; automatic discovery is unavailable.
+
+## Controls, recovery and retention
+
+Set `automaticCheckpoints: false` in `.memory-capture.json` to disable generation. `enabled: false` or `sessionCapture: false` also stops automatic generation. Project roles, omitted fields and redaction rules are reapplied to checkpoint evidence before writes. Capture remains independently configurable. No historical backfill runs when upgrading.
+
+Generation jobs live in the private `.memory-capture/queue/.checkpoints/` directory and coalesce by owner, namespace and session. A generation failure retains the job without replaying acknowledged conversation writes. Later hooks or `flush` retry it; there is no background daemon. Status exposes `checkpointPending` plus checkpoint save, failure and insufficient-evidence observations. Disabled generation preserves already-pending jobs. These observations do not establish current freshness or completed service extraction; resume resolves freshness against session history.
+
+Automatic revisions are ordinary episodic long-term records, with the store's retention, embedding and storage costs. Older revisions are retained and excluded from ordinary assembled recall. They are not garbage-collected by this release. Session expiration or deletion can make current resolution unavailable; long-term revisions require their own deletion according to store retention policy.
+
+## Verification boundaries
+
+The unit suite covers revision freshness, delayed writes, independent retries, scope checks, privacy, budget enforcement and opt-outs. Packaged smoke tests cover automatic creation and fresh-chat startup discovery for both clients. The opt-in live session test verifies four ordered turns across both packaged clients, an automatic checkpoint resolved through the bridge, fresh packaged startup discovery, and fixture cleanup. It invokes handlers directly and does not establish desktop activation.
+
+On October 16, 2026, an isolated Claude Code 2.1.301 CLI run dispatched SessionStart, UserPromptSubmit, PreToolUse, PostToolUse, Stop and SessionEnd for a single permitted `printf`; resuming that synthetic session with the real `/compact` command dispatched PreCompact. This verifies those CLI events, not all 12 events or any desktop surface. The handler emits `{}` at compaction; its checkpoint is stored for later resume, not injected into compaction context. Separate desktop activation and the remaining lifecycle events still require verification.
+
+Codex CLI 0.163.0 also dispatched SessionStart, UserPromptSubmit, PreToolUse, PostToolUse and Stop in an isolated `codex exec` test. The test used canonical project trust in a temporary CODEX_HOME and the documented invocation-only `--dangerously-bypass-hook-trust` flag for inspected test hooks; normal installations still require reviewing their hooks. An app-server compaction attempt without persisted hook trust emitted no dispatch records and does not verify PreCompact. See the [official hook trust contract](https://learn.chatgpt.com/docs/hooks#review-and-trust-hooks). Local desktop activation and actual Codex PreCompact remain open verification work.

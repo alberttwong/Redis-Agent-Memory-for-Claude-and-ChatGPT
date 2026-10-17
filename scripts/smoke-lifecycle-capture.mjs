@@ -34,7 +34,7 @@ globalThis.fetch = async (url, options) => {
     const calls = join(directory, `${source}-calls.jsonl`);
     await writeFile(calls, "");
     const configPath = join(project, ".memory-capture.json");
-    const config = { enabled: true, ownerId: "test-person", namespace: "test-project", observations: { inputChars: 100, outputChars: 100 } };
+    const config = { automaticCheckpoints: false, enabled: true, ownerId: "test-person", namespace: "test-project", observations: { inputChars: 100, outputChars: 100 } };
     await writeFile(configPath, JSON.stringify(config));
     const env = { PATH: process.env.PATH, SystemRoot: process.env.SystemRoot,
       CLAUDE_PLUGIN_ROOT: installed, PLUGIN_ROOT: installed, CLAUDE_PROJECT_DIR: project,

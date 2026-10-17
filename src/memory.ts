@@ -1,5 +1,4 @@
 import { redactSensitiveText, sanitizeMemory, roleAllowed } from "./privacy.js";
-import { createHash } from "node:crypto";
 import type {
   AddSessionEventRequestContent,
   AddSessionEventResponseContent,
@@ -16,6 +15,7 @@ import type {
 } from "@redis-iris/agent-memory/models";
 import { FilterConjunction, MessageRole } from "@redis-iris/agent-memory/models";
 import type { AppConfig } from "./config.js";
+import { automaticCheckpointId, canonicalCheckpointId, evidenceCheckpoint } from "./automatic-checkpoint.js";
 
 export interface MemoryClient {
   storeHealth(): Promise<StoreHealthResponseContent>;
@@ -56,6 +56,7 @@ export type Checkpoint = {
   commit?: string;
   changedFiles?: string[];
   notes?: string[];
+  automatic?: { version: 1; watermark: string; evidence: Array<{ eventId: string; role: string; quote: string }> };
 };
 
 export type SearchInput = MemoryScope & {
@@ -64,6 +65,7 @@ export type SearchInput = MemoryScope & {
   similarityThreshold?: number;
   memoryTypes?: string[];
   topics?: string[];
+  includeHistory?: boolean;
 };
 
 export type AppendInput = MemoryScope & {
@@ -146,7 +148,7 @@ export class MemoryGateway {
     return this.client.getSessionMemory(sessionId, includeSummarisedEvents);
   }
 
-  search(input: SearchInput) {
+  async search(input: SearchInput) {
     const scope = this.scope(input);
     const filter: LongTermMemoryFilter = {
       ownerId: { eq: scope.ownerId },
@@ -158,23 +160,21 @@ export class MemoryGateway {
     }
     if (input.topics?.length) filter.topics = { all: input.topics };
 
-    return this.client.searchLongTermMemory({
+    const result = await this.client.searchLongTermMemory({
       text: input.query,
       filter,
       filterOp: FilterConjunction.All,
       limit: input.limit ?? 8,
       similarityThreshold: input.similarityThreshold ?? 0.65,
     });
+    // Automatic historical snapshots are never current guidance. resume_context
+    // resolves the single current snapshot by authoritative session watermark.
+    return input.includeHistory ? result : { ...result, items: (result.items ?? []).filter(item => !item.topics?.includes("automatic-checkpoint")) };
   }
 
   checkpointId(sessionId: string, scope: MemoryScope = {}): string {
     const resolved = this.scope(scope);
-    const namespaceKey = resolved.namespaceId ?? resolved.namespace ?? "global";
-    const digest = createHash("sha256")
-      .update(`${resolved.ownerId}:${namespaceKey}:${sessionId}`)
-      .digest("hex")
-      .slice(0, 32);
-    return `checkpoint-${digest}`;
+    return canonicalCheckpointId(resolved, sessionId);
   }
 
   async saveCheckpoint(
@@ -222,8 +222,8 @@ export class MemoryGateway {
     inputScope: MemoryScope & { limit?: number } = {},
   ) {
     const checkpointId = this.checkpointId(sessionId, inputScope);
-    const [session, recalled, checkpoint] = await Promise.all([
-      this.getSession(sessionId),
+    const [session, recalled, explicitCheckpoint] = await Promise.all([
+      this.getSession(sessionId, true),
       this.search({
         ...inputScope,
         query,
@@ -234,6 +234,22 @@ export class MemoryGateway {
         throw error;
       }),
     ]);
+    const resolved = this.scope(inputScope);
+    const automaticId = automaticCheckpointId(resolved, session, this.config.guardrails);
+    const automatic = this.config.automaticCheckpoints === false ? null : await this.client.getLongTermMemory(automaticId).catch((error: unknown) => {
+      if (statusCode(error) === 404) return null;
+      throw error;
+    });
+    const events = session.events ?? [];
+    const lastEventAt = Math.max(0, ...events.map(event => new Date(event.systemTimestamp ?? event.createdAt).valueOf()).filter(Number.isFinite));
+    const explicitIsFresh = explicitCheckpoint && (!explicitCheckpoint.updatedAt || new Date(explicitCheckpoint.updatedAt).valueOf() >= lastEventAt);
+    let checkpoint: { id: string; text: string; revisionId?: string } | null = explicitIsFresh ? explicitCheckpoint : automatic ? { ...automatic, id: checkpointId, revisionId: automaticId } : null;
+    let checkpointState = explicitIsFresh ? "explicit" : automatic ? "automatic" : "unavailable";
+    if (!checkpoint && this.config.automaticCheckpoints !== false) {
+      const evidence = evidenceCheckpoint(session, this.config.guardrails, [this.config.apiKey]);
+      if (evidence) { checkpoint = { id: checkpointId, text: checkpointText(sessionId, evidence) };
+        checkpointState = "derived-not-persisted"; }
+    }
 
     // Keep the canonical checkpoint first and avoid recalling it twice.
     const seen = new Set<string>(checkpoint?.text ? [checkpoint.text.trim()] : []);
@@ -243,8 +259,7 @@ export class MemoryGateway {
       if (key) seen.add(key);
       return true;
     }).slice(0, inputScope.limit ?? 8);
-    const events = session.events ?? [];
-    return { checkpoint, recalled: { ...recalled, items }, session: { ...session, events: events.slice(-20) },
+    return { checkpoint, checkpointState, recalled: { ...recalled, items }, session: { ...session, events: events.slice(-20) },
       eventPage: { total: events.length, returned: Math.min(20, events.length), nextOffset: events.length > 20 ? 20 : null } };
   }
 }

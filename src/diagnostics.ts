@@ -14,7 +14,7 @@ const recallSchema = z.object({
 export type RecallDiagnostic = z.infer<typeof recallSchema>;
 const recordSchema = z.object({
   at: z.string().datetime(), owner: z.string(), namespace: z.string(), source: z.string(),
-  kind: z.enum(["capture", "delivery", "session-delivery", "session-failure", "prompt-recall", "startup-recall", ...claudeCaptureEvents]),
+  kind: z.enum(["capture", "delivery", "session-delivery", "session-failure", "checkpoint", "checkpoint-failure", "checkpoint-skipped", "prompt-recall", "startup-recall", ...claudeCaptureEvents]),
   count: z.number().int().nonnegative().optional(), recall: recallSchema.optional(),
   reason: z.enum(["uncertain", "changed", "conflict", "unavailable", "incomplete"]).optional(),
 });
@@ -50,6 +50,7 @@ export async function readDiagnostics(directory: string, scope: DiagnosticScope)
   };
   return { scope, lastCapture: await read("capture"), lastDelivery: await read("delivery"),
     sessionDelivery: await read("session-delivery"), sessionFailure: await read("session-failure"),
+    checkpoint: await read("checkpoint"), checkpointFailure: await read("checkpoint-failure"), checkpointSkipped: await read("checkpoint-skipped"),
     extraction: "not-verified", extractionEvidence: "A session acknowledgment proves delivery only; extraction requires configured service behavior and independent scoped search evidence.",
     promptRecall: await read("prompt-recall"), startupRecall: await read("startup-recall"),
     hookDispatch: Object.fromEntries(await Promise.all((scope.source === "claude" ? claudeCaptureEvents : codexCaptureEvents)

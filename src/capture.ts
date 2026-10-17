@@ -10,6 +10,7 @@ import * as z from "zod/v4";
 import { observation, observationAllowed, observationConfigSchema, type HookInput, type ObservationConfig } from "./hook-observations.js";
 import { deliverSession, sessionRequest, SessionCaptureError, type SessionCapture, type SessionCaptureTransport } from "./session-capture.js";
 import { setTimeout as delay } from "node:timers/promises";
+import { drainCheckpoints, pendingCheckpoints, queueCheckpoint, type CheckpointPlan, type CheckpointStore } from "./automatic-checkpoint.js";
 export type { HookInput } from "./hook-observations.js";
 
 const identifier = z.string().regex(/^[A-Za-z0-9-]{1,64}$/);
@@ -23,6 +24,7 @@ export const captureConfigSchema = z.object({
   sessionCapture: z.boolean().default(true),
   sessionObservations: z.boolean().default(false),
   compatibilityCapture: z.boolean().default(true),
+  automaticCheckpoints: z.boolean().default(true),
   observations: observationConfigSchema,
   startupContextChars: z.number().int().min(1024).max(100000).default(18000),
   promptContextChars: z.number().int().min(1024).max(100000).default(5400),
@@ -42,13 +44,14 @@ export type CapturedMemory = {
   topics: string[];
 };
 export type QueueEntry = { version: 1; memories: CapturedMemory[] }
-  | { version: 2; memories: CapturedMemory[]; session?: SessionCapture; compatibility: boolean };
-export type DeliveryOptions = Pick<CaptureConfig, "enabled" | "sessionCapture" | "sessionObservations" | "compatibilityCapture"> & { retryUncertain?: boolean };
+  | { version: 2; memories: CapturedMemory[]; session?: SessionCapture; compatibility: boolean; checkpoint?: CheckpointPlan };
+export type DeliveryOptions = Pick<CaptureConfig, "enabled" | "sessionCapture" | "sessionObservations" | "compatibilityCapture"> & { retryUncertain?: boolean; automaticCheckpoints?: boolean };
 export interface CaptureTransport {
   destinationId?: string;
   session?: SessionCaptureTransport;
+  checkpoints?: CheckpointStore;
   create(memories: CapturedMemory[]): Promise<{ created: string[]; errors?: unknown[] | null }>;
-  recall(owner: string, namespace: string, limit: number): Promise<Array<{ text: string; id?: string }>>;
+  recall(owner: string, namespace: string, limit: number): Promise<Array<{ text: string; id?: string; session_id?: string; sessionId?: string; namespace?: string }>>;
 }
 
 export function digest(value: string): string {
@@ -113,7 +116,15 @@ export function makeEntry(
   if (!config.sessionCapture && config.compatibilityCapture) return { version: 1, memories };
   if (!config.sessionCapture && !config.compatibilityCapture) return null;
   return { version: 2, memories, compatibility: config.compatibilityCapture,
+    ...(input.hook_event_name === "Stop" && config.automaticCheckpoints ? { checkpoint: checkpointPlan(config, root, source, input, secrets) } : {}),
     session: { createdAt: timestamp, eventGroup: digest(eventIdentity), observations: config.sessionObservations } };
+}
+
+export function checkpointPlan(config: CaptureConfig, root: string, source: string, input: HookInput, secrets: string[] = []): CheckpointPlan {
+  const resolved = scope(config, root, source, input);
+  const plan = { ownerId: resolved.owner, namespace: resolved.namespace, sessionId: resolved.session, source };
+  if (secrets.filter(Boolean).some(secret => Object.values(plan).some(value => value.includes(secret)))) throw new Error("Privacy policy prevents checkpoint routing");
+  return plan;
 }
 
 function capturedRoleAllowed(text: string, guardrails: Guardrails, policy?: ObservationConfig): boolean {
@@ -179,7 +190,7 @@ export async function pendingCount(directory: string): Promise<number> {
   })).filter(file => file.endsWith(".json")).length;
 }
 
-export async function flush(directory: string, transport: CaptureTransport, secrets: string[] = [], guardrails: Guardrails = {}, policy?: ObservationConfig, options?: DeliveryOptions): Promise<{ sent: number; pending: number; busy?: boolean; sessionSent?: number; sessionReconciled?: number }> {
+export async function flush(directory: string, transport: CaptureTransport, secrets: string[] = [], guardrails: Guardrails = {}, policy?: ObservationConfig, options?: DeliveryOptions): Promise<{ sent: number; pending: number; busy?: boolean; sessionSent?: number; sessionReconciled?: number; checkpointSaved?: number; checkpointPending?: number }> {
   await mkdir(directory, { recursive: true, mode: 0o700 });
   const lockPath = join(directory, ".flush-lock");
   let lock;
@@ -206,6 +217,10 @@ export async function flush(directory: string, transport: CaptureTransport, secr
   let sessionWork = false;
   try {
     const receipts = join(directory, ".receipts");
+    const checkpointQueue = join(directory, ".checkpoints");
+    const deferCheckpoint = async (entry: QueueEntry) => {
+      if (entry.version === 2 && entry.checkpoint && options?.automaticCheckpoints !== false && options?.sessionCapture !== false && options?.enabled !== false) await queueCheckpoint(checkpointQueue, entry.checkpoint);
+    };
     await mkdir(receipts, { recursive: true, mode: 0o700 });
     for (const name of (await readdir(directory)).filter(file => file.endsWith(".json")).sort()) {
       const path = join(directory, name);
@@ -215,7 +230,7 @@ export async function flush(directory: string, transport: CaptureTransport, secr
         typeof entry.session.observations !== "boolean" || !/^[a-f0-9]{32}$/.test(entry.session.eventGroup)
         || typeof entry.session.createdAt !== "string" || Number.isNaN(Date.parse(entry.session.createdAt))
       ))) throw new Error("Invalid capture queue delivery plan; retained for recovery");
-      if (options?.enabled === false && entry.memories.some(memory => ["auto-capture", "auto-observation"].includes(memory.topics[0]))) continue;
+      if (options?.enabled === false && (entry.version === 2 || entry.memories.some(memory => ["auto-capture", "auto-observation"].includes(memory.topics[0])))) continue;
       if (entry.version === 2 && entry.session && options?.sessionCapture !== false) {
         for (const memory of entry.memories.filter(memory => capturedRoleAllowed(memory.text, guardrails, policy))) {
           const request = sessionRequest(memory, { ...entry.session,
@@ -235,7 +250,7 @@ export async function flush(directory: string, transport: CaptureTransport, secr
           }
         }
       }
-      if (entry.version === 2 && (!entry.compatibility || options?.compatibilityCapture === false)) { await unlink(path); continue; }
+      if (entry.version === 2 && (!entry.compatibility || options?.compatibilityCapture === false)) { await deferCheckpoint(entry); await unlink(path); continue; }
       for (let start = 0; start < entry.memories.length; start += 100) {
         const candidates = entry.memories.slice(start, start + 100).filter(memory => capturedRoleAllowed(memory.text, guardrails, policy));
         const batch: CapturedMemory[] = [];
@@ -263,9 +278,18 @@ export async function flush(directory: string, transport: CaptureTransport, secr
           throw new Error("Capture write was not fully acknowledged; retained for retry");
         }
       }
+      await deferCheckpoint(entry);
       await unlink(path);
     }
-    return { sent, pending: await pendingCount(directory), ...(sessionWork ? { sessionSent, sessionReconciled } : {}) };
+    let checkpoints: {checkpointSaved: number; checkpointPending: number} | undefined;
+    const checkpointJobs = await pendingCheckpoints(checkpointQueue);
+    if (checkpointJobs.length && options?.enabled !== false && options?.sessionCapture !== false && options?.automaticCheckpoints !== false) {
+      checkpoints = transport.checkpoints ? await drainCheckpoints(checkpointQueue, transport.checkpoints, guardrails, secrets, async (plan, state) => {
+        await recordDiagnostic(join(dirname(directory), "diagnostics"), {owner: plan.ownerId, namespace: plan.namespace, source: plan.source},
+          state === "saved" ? "checkpoint" : state === "failed" ? "checkpoint-failure" : "checkpoint-skipped", {count: state === "saved" ? 1 : 0});
+      }) : {checkpointSaved: 0, checkpointPending: checkpointJobs.length};
+    }
+    return { sent, pending: await pendingCount(directory), ...(sessionWork ? { sessionSent, sessionReconciled } : {}), ...checkpoints };
   } finally {
     await lock.close();
     await unlink(lockPath);

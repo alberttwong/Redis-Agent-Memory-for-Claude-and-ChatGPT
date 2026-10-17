@@ -156,6 +156,7 @@ export function createServer(gateway: MemoryGateway, guardrails: Guardrails = {}
         similarityThreshold: z.number().min(0).max(1).default(0.65),
         memoryTypes: z.array(z.string().min(1)).max(20).optional(),
         topics: z.array(z.string().min(1).max(100)).max(50).optional(),
+        includeHistory: z.boolean().default(false).describe("Include historical automatic checkpoint revisions; use resume_context for current handoff guidance."),
         ...scopeSchema,
       },
       annotations: { readOnlyHint: true, openWorldHint: false },
@@ -170,6 +171,7 @@ export function createServer(gateway: MemoryGateway, guardrails: Guardrails = {}
             similarityThreshold: input.similarityThreshold,
             memoryTypes: input.memoryTypes,
             topics: input.topics,
+            includeHistory: input.includeHistory,
           });
           return { ...response, items: response.items?.slice(0, input.limit) };
         }, input.maxChars),

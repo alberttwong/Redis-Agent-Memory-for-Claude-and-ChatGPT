@@ -15,7 +15,7 @@ globalThis.fetch = async (input, options) => {
   if (url.origin !== 'https://memory.example.test') throw new Error('Unexpected origin');
   if (request.headers.get('authorization') !== 'Bearer test-key') throw new Error('Wrong credentials');
   const db = JSON.parse(readFileSync(process.env.TEST_DATABASE, 'utf8'));
-  const json = data => new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json' } });
+  const json = (data, status=200) => new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } });
   if (url.pathname === '/v1/stores/test/session-memory/events') {
     const body = await request.json();
     const event = { ...body, eventId: 'event-' + (db.events.length + 1), systemTimestamp: new Date().toISOString() };
@@ -26,6 +26,16 @@ globalThis.fetch = async (input, options) => {
   if (request.method === 'GET' && url.pathname.startsWith('/v1/stores/test/session-memory/')) {
     const sessionId = url.pathname.split('/').at(-1);
     return json({ sessionId, ownerId: 'owner', namespace: 'project', events: db.events.filter(event => event.sessionId === sessionId) });
+  }
+  if (url.pathname.startsWith('/v1/stores/test/long-term-memory')) {
+    if (request.method === 'GET') {
+      const record = db.memories[url.pathname.split('/').at(-1)];
+      return record ? json(record) : new Response('{}', {status: 404, headers: {'Content-Type':'application/json'}});
+    }
+    const body = await request.json();
+    for (const memory of body.memories) db.memories[memory.id] = {...memory, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()};
+    writeFileSync(process.env.TEST_DATABASE, JSON.stringify(db));
+    return json({created: body.memories.map(memory => memory.id)}, 201);
   }
   if (url.pathname !== '/v1/stores/test/mcp') throw new Error('Unexpected path');
   if (process.env.TEST_MODE === 'native-down') throw new Error('native unavailable test-key');
@@ -38,7 +48,7 @@ globalThis.fetch = async (input, options) => {
       for (const memory of body.params.arguments.memories) db.memories[memory.id] = memory;
       writeFileSync(process.env.TEST_DATABASE, JSON.stringify(db));
       result = { content: [{ type: 'text', text: JSON.stringify({ created: body.params.arguments.memories.map(memory => memory.id) }) }] };
-    } else result = { content: [{ type: 'text', text: JSON.stringify({ memories: [] }) }] };
+    } else result = { content: [{ type: 'text', text: JSON.stringify({ memories: Object.values(db.memories).filter(memory => memory.topics.includes('auto-capture')) }) }] };
   } else throw new Error('Unexpected method');
   return json({ jsonrpc: '2.0', id: body.id, result });
 };`);
@@ -74,12 +84,19 @@ globalThis.fetch = async (input, options) => {
     run("hook", response, "native-down");
     db = JSON.parse(await readFile(database, "utf8")); assert.equal(db.events.length, 2, "REST append must not depend on native MCP availability");
     const delivered = run("flush"); assert.equal(delivered.sessionSent, 0);
-    db = JSON.parse(await readFile(database, "utf8")); assert.equal(db.events.length, 2); assert.equal(Object.keys(db.memories).length, 2);
+    db = JSON.parse(await readFile(database, "utf8")); assert.equal(db.events.length, 2); assert.equal(Object.keys(db.memories).length, 3);
+    assert.equal(delivered.checkpointSaved, 1);
+    assert.equal(Object.values(db.memories).filter(memory => memory.topics.includes("automatic-checkpoint")).length, 1);
     assert.deepEqual(db.events.map(event => event.role), ["USER", "ASSISTANT"]);
     assert(db.events.every(event => event.actorId === "owner" && event.sessionId === db.events[0].sessionId));
     assert.equal(db.events[0].content[0].text, "Use three retries [REDACTED]");
     const status = run("status");
     assert.equal(status.diagnostics.sessionDelivery.state, "observed"); assert.equal(status.diagnostics.extraction, "not-verified");
+    await writeFile(join(project, ".memory-capture.json"), JSON.stringify({...config, recallLimit: 6}));
+    const startup = run("hook", {hook_event_name: "SessionStart", session_id: "fresh-chat"});
+    const packet = JSON.parse(startup.hookSpecificOutput.additionalContext);
+    assert.equal(packet.checkpoint.sessionId, db.events[0].sessionId);
+    assert.match(packet.checkpoint.text, /Agreed on three/);
     console.log(`${source}: packaged session-first capture, REST/native failure independence, lost-response reconciliation, replay, ownership, privacy, and diagnostics passed.`);
   }
 } finally { await rm(directory, { recursive: true, force: true }); }
