@@ -52,7 +52,8 @@
     "claude-plugin:test": "npm run claude-plugin:validate && node scripts/build-claude-plugin.mjs --check && npm run build && node --test dist/test/memory-setup.test.js && node scripts/smoke-claude-plugin.mjs",
     "claude-plugin:build": "node scripts/build-claude-plugin.mjs",
     "plugin:runtime": "node scripts/build-chatgpt-runtime.mjs",
-    "capture:share-settings": "npm run build && node dist/src/capture-cli.js share-settings"
+    "capture:share-settings": "npm run build && node dist/src/capture-cli.js share-settings",
+    "test:e2e:codex-host": "python3 integration/codex-host-hooks.py"
   },
   "engines": {
     "node": ">=20.12"

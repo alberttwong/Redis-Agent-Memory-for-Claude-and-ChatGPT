@@ -6,7 +6,7 @@ The repository ships two OpenAI plugin profiles to separate local automatic savi
 
 ## Local desktop plugin
 
-The local profile bundles the stdio MCP server, project setup skill, and six lifecycle hooks (`SessionStart`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `PreCompact`, `Stop`). Tool and compaction events capture bounded observations; they do not generate checkpoints or inject compaction context. See [expanded coverage, controls, and verification limits](automatic-capture.md#expanded-lifecycle-observations). It supports automatic saving and retry in configured projects running as local ChatGPT/Codex desktop chats.
+The local profile bundles the stdio MCP server, project setup skill, and six lifecycle hooks (`SessionStart`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `PreCompact`, `Stop`). Tool and compaction events capture bounded observations. Stop and PreCompact also queue provider-free evidence checkpoints from captured ordered sessions; compaction receives no injected context. See [expanded coverage, controls, and verification limits](automatic-capture.md#expanded-lifecycle-observations). It supports automatic saving and retry in configured projects running as local ChatGPT/Codex desktop chats.
 
 For installation, download `redis-agent-memory-chatgpt-desktop-<version>.zip` from the [latest release](https://github.com/alberttwong/redis-agent-memory-mcp/releases/latest) and follow the [ChatGPT Desktop quickstart](quickstart-chatgpt-desktop.md). The desktop ZIP includes a local marketplace at `.agents/plugins/marketplace.json` and the bundled plugin under `plugins/redis-agent-memory/`. The plugin contains the server and capture CLI with their JavaScript dependencies bundled. Node.js 20.12 or later is required at runtime; npm and compilation are not required for release installation.
 
@@ -59,6 +59,8 @@ AGENT_MEMORY_BASE_URL=https://your-agent-memory-endpoint
 AGENT_MEMORY_STORE_ID=your-store-id
 AGENT_MEMORY_API_KEY=your-store-api-key
 ```
+
+Registration alone does not install or enable the plugin. Check `codex plugin list --json --available --marketplace redis-agent-memory-local`: `installed: false` or `enabled: false` means no plugin activation has been established. Project-installed hooks are a separate path and must exist in the checkout/worktree being used. Trust stored for a primary checkout does not establish hook activation in another worktree. After enabling and reviewing hooks, start a fresh local chat and inspect event diagnostics; `doctor --plugin` cannot prove host dispatch.
 
 Projects without `.memory-capture.json` are ignored by the plugin hook. Set `enabled` to `false` in that file to pause capture. Removing the plugin disables its hooks without deleting project configuration, queued writes, or Redis memories.
 
