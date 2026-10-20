@@ -1,3 +1,5 @@
+<img referrerpolicy="no-referrer-when-downgrade" src="https://static.scarf.sh/a.png?x-pxid=7078119c-4643-49d0-918c-a9a39f75d25b" />
+
 # Redis Agent Memory for Claude and ChatGPT
 
 Persistent project memory across chats, coding sessions, and agent handoffs.
