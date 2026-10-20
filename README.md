@@ -10,6 +10,8 @@ Configured local Claude Code and ChatGPT/Codex projects automatically save submi
 
 For capture/delivery timestamps, scoped recall evidence, troubleshooting, and a cross-client marker check, see [Memory diagnostics](docs/memory-diagnostics.md).
 
+For contributors and coding assistants, the [project SDLC artifacts](docs/ai-native-sdlc/README.md) capture the current intent, architecture, development plan, verification, review, release, and maintenance practices. Start with [CLAUDE.md](CLAUDE.md) for repository commands and conventions.
+
 ## When to use it
 
 - Continue a project in a new chat without restating earlier decisions.
