@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const readJson = async (path) => JSON.parse(await readFile(path, "utf8"));
+const packageDocument = await readJson(join(root, "package.json"));
 const catalog = await readJson(join(root, ".claude-plugin", "marketplace.json"));
 assert.ok(catalog.name && catalog.owner?.name, "Claude marketplace needs a name and owner");
 assert.ok(catalog.plugins?.length, "Claude marketplace must list an installable plugin");
@@ -14,7 +15,7 @@ for (const entry of catalog.plugins) {
   const pluginRoot = join(root, entry.source);
   const plugin = await readJson(join(pluginRoot, ".claude-plugin", "plugin.json"));
   assert.equal(entry.name, plugin.name);
-  // Claude plugin revisions are independent of the root package release.
+  assert.equal(plugin.version, packageDocument.version, "Claude plugin version must match package.json");
   assert.equal(entry.version, plugin.version);
   assert.match(plugin.version, /^\d+\.\d+\.\d+$/);
   const server = plugin.mcpServers?.["redis-agent-memory"];

@@ -32,6 +32,9 @@ export async function validateChatGptPluginSources() {
   const remoteRoot = join(root, "plugins", "redis-agent-memory-remote");
   const local = pluginSchema.parse(JSON.parse(await readFile(join(localRoot, "plugin.json"), "utf8")));
   const remote = pluginSchema.parse(JSON.parse(await readFile(join(remoteRoot, "plugin.json"), "utf8")));
+  if (local.version !== packageDocument.version) {
+    throw new Error("Local plugin version must match package.json");
+  }
   if (remote.version !== packageDocument.version) {
     throw new Error("Remote plugin version must match package.json");
   }

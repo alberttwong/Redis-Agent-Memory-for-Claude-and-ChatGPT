@@ -1,6 +1,6 @@
 {
   "name": "redis-agent-memory-mcp",
-  "version": "0.1.8",
+  "version": "0.1.14",
   "private": true,
   "type": "module",
   "description": "Shared Redis Agent Memory bridge for Claude Code and Codex",

@@ -25,6 +25,9 @@ strict TypeScript, NodeNext resolution. Start with [README.md](README.md) and
   or hook protocol responses; operational diagnostics belong on stderr.
 - Edit `src/`, then regenerate checked-in plugin runtimes with
   `npm run plugin:runtime` and `npm run claude-plugin:build`; do not hand-edit bundles.
+- Use one release version across package.json, package-lock.json, MCP server metadata,
+  MCPB manifest, local/remote ChatGPT plugins, Claude plugin, and Claude marketplace.
+  Regenerate bundled runtimes after updating MCP server metadata.
 - Keep credentials, queue payloads, local transcripts, and private settings out
   of Git and documentation. Use synthetic fixtures and preserve privacy opt-outs.
 
