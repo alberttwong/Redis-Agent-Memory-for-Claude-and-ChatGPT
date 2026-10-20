@@ -6,6 +6,10 @@ import { loadMemoryEnvironment } from "./shared-settings.js";
 import { loadProjectGuardrails } from "./privacy.js";
 import { runServer } from "./server.js";
 
+import { createTelemetry, installTelemetryLifecycle, Telemetry } from "./telemetry.js";
+
+let telemetry = new Telemetry("mcp");
+
 function lazyGateway(): MemoryGateway {
   let gateway: MemoryGateway | undefined;
   const resolve = () => {
@@ -29,10 +33,14 @@ function lazyGateway(): MemoryGateway {
 
 async function main() {
   await loadMemoryEnvironment(process.env.MEMORY_CAPTURE_PROJECT_ROOT ?? process.env.CLAUDE_PROJECT_DIR ?? process.cwd());
-  await runServer(lazyGateway(), loadProjectGuardrails(process.env.MEMORY_CAPTURE_PROJECT_ROOT ?? process.env.CLAUDE_PROJECT_DIR ?? process.cwd()));
+  telemetry = createTelemetry("mcp");
+  installTelemetryLifecycle(telemetry);
+  await runServer(lazyGateway(), loadProjectGuardrails(process.env.MEMORY_CAPTURE_PROJECT_ROOT ?? process.env.CLAUDE_PROJECT_DIR ?? process.cwd()), telemetry);
 }
 
-main().catch((error: unknown) => {
+main().catch(async (error: unknown) => {
+  telemetry.failure("startup", error);
+  await telemetry.shutdown();
   const message = error instanceof Error ? error.stack ?? error.message : String(error);
   console.error(message);
   process.exit(1);

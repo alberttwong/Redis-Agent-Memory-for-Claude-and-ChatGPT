@@ -44,6 +44,7 @@ try {
       const result = await client.listTools();
       assert.deepEqual(result.tools.map((tool) => tool.name).sort(), [
         "checkpoint_save",
+        "feedback_submit",
         "memory_append",
         "memory_get_session",
         "memory_health",

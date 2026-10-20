@@ -7,7 +7,9 @@ const root = resolve(import.meta.dirname, "..");
 for (const [entry, name] of [["claude-plugin-entry.ts", "index.mjs"], ["claude-capture-entry.ts", "capture-cli.mjs"]]) {
   const output = join(root, "plugins/redis-agent-memory-claude/server", name);
   const result = await build({ entryPoints: [join(root, "src", entry)], outfile: output,
-    bundle: true, platform: "node", format: "esm", target: "node20", minify: true,
+    bundle: true,
+    // PostHog probes this optional peer for trace context; tracing is not enabled.
+    external: ["@opentelemetry/api"], platform: "node", format: "esm", target: "node20", minify: true,
     sourcemap: false, legalComments: "none", write: false });
   const bytes = result.outputFiles[0].contents;
   if (process.argv.includes("--check")) {
