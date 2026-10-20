@@ -5,12 +5,14 @@ import { MemorySetup, memoryConfigPath, readMemorySettings } from "./memory-setu
 import { loadProjectGuardrails } from "./privacy.js";
 import { createServer } from "./server.js";
 
+import { Telemetry } from "./telemetry.js";
+
 function connect(config: AppConfig) {
   const client = new AgentMemory({ serverURL: config.baseUrl, storeId: config.storeId, apiKey: config.apiKey });
   return new MemoryGateway(client, config);
 }
 
-export function createClaudePlugin(configPath = memoryConfigPath(), gatewayFor: (config: AppConfig) => MemoryGateway = connect) {
+export function createClaudePlugin(configPath = memoryConfigPath(), gatewayFor: (config: AppConfig) => MemoryGateway = connect, telemetry = new Telemetry("claude-plugin")) {
   const setup = new MemorySetup(configPath);
   const gateway = new Proxy({} as MemoryGateway, {
     get(_target, property) {
@@ -24,16 +26,16 @@ export function createClaudePlugin(configPath = memoryConfigPath(), gatewayFor: 
       };
     },
   });
-  const server = createServer(gateway, loadProjectGuardrails(process.env.MEMORY_CAPTURE_PROJECT_ROOT ?? process.env.CLAUDE_PROJECT_DIR ?? process.cwd()));
+  const server = createServer(gateway, loadProjectGuardrails(process.env.MEMORY_CAPTURE_PROJECT_ROOT ?? process.env.CLAUDE_PROJECT_DIR ?? process.cwd()), telemetry);
   server.registerTool("memory_setup", {
     title: "Set up Redis Memory",
     description: "Create a local browser form to configure the Redis URL, store ID, and API key without sharing credentials in chat. Also use to update connection settings.",
     annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
   }, async () => {
-    const link = await setup.open();
+    const link = await telemetry.observe("memory_setup", () => setup.open());
     return { content: [{ type: "text", text: JSON.stringify(link) }], structuredContent: link };
   });
-  server.server.onclose = () => setup.close();
+  server.server.onclose = () => { setup.close(); void telemetry.shutdown(); };
   return server;
 }
 

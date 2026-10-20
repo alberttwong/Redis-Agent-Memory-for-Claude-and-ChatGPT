@@ -185,6 +185,10 @@ Redis Agent Memory provides storage, scoped search, session history, and automat
 - **Conversation history imports:** The import tools load existing Claude and ChatGPT exports with previews, configurable redaction, and retries for pending writes. See [import existing memories](docs/importing-memories.md).
 - **Shared connection settings:** The plugin reuses Redis credentials across worktrees and checkouts while preserving each project's configuration and memory scope. See [shared settings and project overrides](docs/automatic-saving-operations.md#reuse-redis-settings-across-worktrees-and-checkouts).
 
+## Product analytics and feedback
+
+Optional [PostHog integration](docs/posthog.md) provides product usage analytics, error tracking, and explicit user feedback through the `feedback_submit` tool or capture CLI. Enable it with your own project token in the local environment; conversation contents are excluded from operational telemetry.
+
 ## Architecture
 
 Claude and ChatGPT share saved project context through Redis Agent Memory. See the [architecture diagrams and implementation details](docs/handoff-workflow.md#architecture).

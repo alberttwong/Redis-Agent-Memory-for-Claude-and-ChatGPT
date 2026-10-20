@@ -31,6 +31,10 @@ import { AgentMemory } from "@redis-iris/agent-memory";
 import { digest } from "./capture.js";
 import { SessionCaptureError } from "./session-capture.js";
 
+import { feedbackSchema } from "./feedback.js";
+import { createTelemetry, installTelemetryLifecycle, Telemetry, type Operation } from "./telemetry.js";
+
+let telemetry = new Telemetry("capture");
 const mode = process.argv[2] ?? "hook";
 const source = option("--client") ?? (process.argv[3]?.startsWith("--") ? undefined : process.argv[3]) ?? "codex";
 const claudeDesktop = process.argv.includes("--claude-desktop");
@@ -46,6 +50,7 @@ try { inferredRoot = execFileSync("git", ["rev-parse", "--show-toplevel"], {enco
 const projectRoot = resolve(option("--project") ?? process.env.MEMORY_CAPTURE_PROJECT_ROOT ?? inferredRoot);
 const queue = join(projectRoot, ".memory-capture", "queue");
 const diagnostics = join(projectRoot, ".memory-capture", "diagnostics");
+let environment: Awaited<ReturnType<typeof loadMemoryEnvironment>>;
 let config: ReturnType<typeof captureConfigSchema.parse>;
 let importSummary: Record<string, unknown> | undefined;
 
@@ -78,6 +83,18 @@ function unpack(value: unknown): any {
 }
 
 async function main() {
+  if (mode === "feedback") {
+    let message = "";
+    for await (const chunk of process.stdin) {
+      message += chunk;
+      if (message.length > 4000) throw new Error("Feedback must be at most 4000 characters.");
+    }
+    const rating = option("--rating");
+    const feedback = feedbackSchema.parse({ message, category: option("--category"),
+      rating: rating === undefined ? undefined : Number(rating) });
+    output(await telemetry.submitFeedback(feedback));
+    return;
+  }
   if (mode === "share-settings") {
     output(await shareProjectSettings(projectRoot, process.env, process.argv.includes("--replace")));
     return;
@@ -142,6 +159,7 @@ async function main() {
       "       ram-capture <command> --claude-desktop [--claude-config PATH] [--project PATH]",
       "",
       "Commands:",
+      "  feedback   Send feedback from stdin to PostHog (--category bug|feature|general, --rating 1-5)",
       "  configure  Create default-enabled capture config without project hooks",
       "  share-settings  Save this project's Redis settings for all configured checkouts (--replace to overwrite)",
       "  install    Install project-scoped Codex hooks and local config",
@@ -180,7 +198,6 @@ async function main() {
     return;
   }
 
-  const environment = await loadMemoryEnvironment(projectRoot);
   let guardrails: ReturnType<typeof loadProjectGuardrails>;
   try { guardrails = loadProjectGuardrails(projectRoot); }
   catch (error) {
@@ -524,7 +541,8 @@ async function main() {
         // Search before flushing: the prompt just enqueued must not match itself.
         promptContext = await recallPrompt(config, scope(config, projectRoot, source, input), input.prompt,
           search, secrets, value => { recallDiagnostic = value; });
-      } catch {
+      } catch (error) {
+        telemetry.failure("prompt_recall", error);
         console.error("Redis recall: relevant memories are unavailable; continuing without recalled context.");
       }
     }
@@ -533,6 +551,7 @@ async function main() {
       config ? { ...config, retryUncertain: mode === "flush" && process.argv.includes("--retry-uncertain") } : undefined); }
     catch (error) {
       if (mode !== "hook") throw error;
+      telemetry.failure("queue_flush", error);
       // A delivery outage must not discard context already retrieved for this turn.
       console.error("Redis capture: delivery incomplete; queued messages will be retried.");
     }
@@ -587,7 +606,18 @@ async function main() {
   }
 }
 
-main().catch((error: unknown) => {
+const command: Operation = (["check", "feedback", "share-settings", "configure", "install", "uninstall", "help", "doctor", "status", "flush", "import-claude", "import-chatgpt", "watch-imports", "hook"] as const).find(value => value === mode)
+  ?? (["--help", "-h"].includes(mode) ? "help" : "unknown");
+
+async function run() {
+  environment = await loadMemoryEnvironment(projectRoot);
+  telemetry = createTelemetry("capture");
+  // The import watcher owns its signals so it can finish its active queue write.
+  installTelemetryLifecycle(telemetry, mode !== "watch-imports");
+  await telemetry.observe(command, main);
+}
+
+run().catch((error: unknown) => {
   if (mode === "flush" && claudeDesktop) {
     const message = error instanceof Error ? error.message : String(error);
     console.error(`ram-capture flush failed: ${message}`);
@@ -601,4 +631,4 @@ main().catch((error: unknown) => {
   }
   if (mode === "hook") output({});
   else process.exitCode = 1;
-});
+}).finally(() => telemetry.shutdown());

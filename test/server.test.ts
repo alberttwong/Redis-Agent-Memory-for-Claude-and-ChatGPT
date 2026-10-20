@@ -28,6 +28,7 @@ test("an MCP client can discover and call the bridge tools", async () => {
     tools.tools.map((tool) => tool.name).sort(),
     [
       "checkpoint_save",
+      "feedback_submit",
       "memory_append",
       "memory_get_session",
       "memory_health",

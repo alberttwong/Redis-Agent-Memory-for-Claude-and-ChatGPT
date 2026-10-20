@@ -18,7 +18,9 @@
     "entry_point": "server/index.js",
     "mcp_config": {
       "command": "node",
-      "args": ["${__dirname}/server/index.js"],
+      "args": [
+        "${__dirname}/server/index.js"
+      ],
       "env": {
         "AGENT_MEMORY_BASE_URL": "${user_config.base_url}",
         "AGENT_MEMORY_STORE_ID": "${user_config.store_id}",
@@ -101,10 +103,17 @@
     {
       "name": "resume_context",
       "description": "Retrieve the checkpoint, session history, and related durable memories."
+    },
+    {
+      "name": "feedback_submit",
+      "description": "Send user-requested product feedback to PostHog when enabled."
     }
   ],
   "compatibility": {
-    "platforms": ["darwin", "win32"],
+    "platforms": [
+      "darwin",
+      "win32"
+    ],
     "runtimes": {
       "node": ">=20.12"
     }

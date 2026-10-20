@@ -3,6 +3,8 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import * as z from "zod/v4";
 import { guardrailInstructions, type Guardrails } from "./privacy.js";
+import { feedbackSchema } from "./feedback.js";
+import { Telemetry, type Operation } from "./telemetry.js";
 import type { Checkpoint, MemoryGateway, MemoryScope } from "./memory.js";
 
 const id = z
@@ -55,12 +57,14 @@ function errorResult(error: unknown) {
 }
 
 function safely<T extends Record<string, unknown>>(
+  telemetry: Telemetry,
+  operation: Operation,
   handler: () => Promise<T>,
 ) {
-  return handler().then(result).catch(errorResult);
+  return telemetry.observe(operation, handler).then(result).catch(errorResult);
 }
 
-export function createServer(gateway: MemoryGateway, guardrails: Guardrails = {}): McpServer {
+export function createServer(gateway: MemoryGateway, guardrails: Guardrails = {}, telemetry = new Telemetry("mcp")): McpServer {
   const server = new McpServer(
     { name: "redis-agent-memory", version: "0.1.7" },
     {
@@ -82,7 +86,7 @@ export function createServer(gateway: MemoryGateway, guardrails: Guardrails = {}
       description: "Check whether the configured Redis Agent Memory store is ready.",
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
-    async () => safely(() => gateway.health()),
+    async () => safely(telemetry, "memory_health", () => gateway.health()),
   );
 
   server.registerTool(
@@ -106,7 +110,7 @@ export function createServer(gateway: MemoryGateway, guardrails: Guardrails = {}
       },
     },
     async (input) =>
-      safely(() =>
+      safely(telemetry, "memory_append", () =>
         gateway.append({
           ...scopeOf(input),
           sessionId: input.sessionId,
@@ -134,7 +138,7 @@ export function createServer(gateway: MemoryGateway, guardrails: Guardrails = {}
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
     async ({ sessionId, includeSummarisedEvents, eventOffset, eventLimit, maxChars }) =>
-      safely(() => read(async () => {
+      safely(telemetry, "memory_get_session", () => read(async () => {
         const session = await gateway.getSession(sessionId, includeSummarisedEvents);
         const events = session.events ?? [];
         const end = Math.max(0, events.length - eventOffset);
@@ -162,7 +166,7 @@ export function createServer(gateway: MemoryGateway, guardrails: Guardrails = {}
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
     async (input) =>
-      safely(() =>
+      safely(telemetry, "memory_search", () =>
         read(async () => {
           const response = await gateway.search({
             ...scopeOf(input),
@@ -217,7 +221,7 @@ export function createServer(gateway: MemoryGateway, guardrails: Guardrails = {}
         changedFiles: input.changedFiles,
         notes: input.notes,
       };
-      return safely(() =>
+      return safely(telemetry, "checkpoint_save", () =>
         gateway.saveCheckpoint(input.sessionId, checkpoint, scopeOf(input)),
       );
     },
@@ -243,7 +247,7 @@ export function createServer(gateway: MemoryGateway, guardrails: Guardrails = {}
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
     async (input) =>
-      safely(() =>
+      safely(telemetry, "resume_context", () =>
         read(() => gateway.resumeContext(input.sessionId, input.query, {
           ...scopeOf(input),
           limit: input.limit,
@@ -251,11 +255,21 @@ export function createServer(gateway: MemoryGateway, guardrails: Guardrails = {}
       ),
   );
 
+  server.registerTool("feedback_submit", {
+    title: "Send product feedback",
+    description: "Send feedback to PostHog only when the user explicitly asks to submit product feedback. "
+      + "Send only the user's intended feedback, never infer feedback from conversation or attach memory contents. "
+      + "Omit credentials and personal information. Requires PostHog to be configured and enabled.",
+    inputSchema: feedbackSchema.shape,
+    annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
+  }, async (input) => safely(telemetry, "feedback_submit", () => telemetry.submitFeedback(input)));
+
   return server;
 }
 
-export async function runServer(gateway: MemoryGateway, guardrails: Guardrails = {}): Promise<void> {
-  const server = createServer(gateway, guardrails);
+export async function runServer(gateway: MemoryGateway, guardrails: Guardrails = {}, telemetry = new Telemetry("mcp")): Promise<void> {
+  const server = createServer(gateway, guardrails, telemetry);
+  server.server.onclose = () => { void telemetry.shutdown(); };
   await server.connect(new StdioServerTransport());
   console.error("Redis Agent Memory MCP server running on stdio");
 }

@@ -23,6 +23,8 @@ await build({
   entryPoints: [join(root, "src", "index.ts")],
   outfile: join(serverDirectory, "index.js"),
   bundle: true,
+    // PostHog probes this optional peer for trace context; tracing is not enabled.
+    external: ["@opentelemetry/api"],
   platform: "node",
   format: "esm",
   target: "node20",

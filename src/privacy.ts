@@ -75,7 +75,7 @@ export function redactSensitiveText(value: string, secrets: string[] = [], guard
   for (const secret of secrets.filter(Boolean)) result = result.replaceAll(secret, "[REDACTED]");
   if (policy.redact.credentials) result = result
     .replace(/-----BEGIN (?:[A-Z]+ )*PRIVATE KEY-----[\s\S]*?-----END (?:[A-Z]+ )*PRIVATE KEY-----/g, "[REDACTED]")
-    .replace(/mem1_[A-Za-z0-9_=-]+|(?<![A-Za-z0-9])sk-(?:ant-|proj-)?[A-Za-z0-9_-]{12,}|gh[pousr]_[A-Za-z0-9_]{20,}/g, "[REDACTED]")
+    .replace(/ph[cpsx]_[A-Za-z0-9_=-]+|mem1_[A-Za-z0-9_=-]+|(?<![A-Za-z0-9])sk-(?:ant-|proj-)?[A-Za-z0-9_-]{12,}|gh[pousr]_[A-Za-z0-9_]{20,}/g, "[REDACTED]")
     .replace(/\bBearer\s+[A-Za-z0-9._~+/=-]+/gi, "Bearer [REDACTED]")
     .replace(/(\b[a-z][a-z0-9+.-]*:\/\/)[^\s/@]+:[^\s/@]+@/gi, "$1[REDACTED]@");
   const enabled = enabledLabels(policy);

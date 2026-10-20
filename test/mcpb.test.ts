@@ -28,6 +28,7 @@ test("MCPB manifest packages the bridge with secure user configuration", async (
       "memory_search",
       "checkpoint_save",
       "resume_context",
+      "feedback_submit",
     ],
   );
 });

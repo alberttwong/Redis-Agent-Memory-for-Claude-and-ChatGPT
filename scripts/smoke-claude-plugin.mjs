@@ -13,8 +13,8 @@ await cp(resolve("plugins/redis-agent-memory-claude"), installed, { recursive: t
 const client = new Client({ name: "claude-plugin-smoke", version: "1.0.0" });
 try {
   await client.connect(new StdioClientTransport({ command: process.execPath,
-    args: [join(installed, "server", "index.mjs")],
-    env: { AGENT_MEMORY_CONFIG_FILE: join(directory, "private", "connection.json") }, stderr: "ignore" }));
+    args: [join(installed, "server", "index.mjs")], cwd: directory,
+    env: { AGENT_MEMORY_SHARED_SETTINGS_FILE: join(directory, "no-shared-settings.json"), AGENT_MEMORY_CONFIG_FILE: join(directory, "private", "connection.json") }, stderr: "ignore" }));
   const tools = await client.listTools();
   assert.ok(tools.tools.some((tool) => tool.name === "memory_setup"));
   assert.ok(tools.tools.some((tool) => tool.name === "memory_health"));
