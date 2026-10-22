@@ -7,7 +7,7 @@ Baseline: `506484c`, version `0.1.7`. Related [intent](intent.md), [plan](plan.m
 
 Node >=20.12 runs strict TypeScript compiled as ESM with NodeNext module resolution.
 Pinned runtime dependencies include MCP SDK `1.32.1`, Redis Agent Memory SDK `0.3.1`,
-Zod `4.6.7`, PostHog Node `5.56.2`, and fflate `0.8.3`.
+Zod `4.6.7`, PostHog Node `5.56.4`, and fflate `0.8.3`.
 
 | Responsibility | Implementation evidence |
 | --- | --- |
